@@ -1,0 +1,6 @@
+@import "tailwindcss";
+@import "../../design/tokens.css";
+@source "../../design/components";
+@source "./";
+
+/* 사이트 강조색 — 한 가지 의미: "지금 고른 것"(벽으로 고른 레이어·선). calm 기본 먹빛 남색을 그대로 쓴다 */

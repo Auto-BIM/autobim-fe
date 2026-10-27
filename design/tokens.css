@@ -1,0 +1,364 @@
+/* ==========================================================================
+   Design Playbook v0 — tokens.css
+   --------------------------------------------------------------------------
+   사용법: app/globals.css 맨 위에서
+     @import "tailwindcss";
+     @import "../design/tokens.css";
+   <html>에 프리셋과 모드를 함께 붙인다 (같은 요소에 둘 다).
+     <html data-preset="calm|friendly" data-mode="light|dark">
+
+   원칙
+   - 모든 값은 "역할" 이름으로만 쓴다. 날것의 색(#hex, red-500, black/40)과
+     임의 크기(text-[11px], rounded-[7px])는 쓰지 않는다.
+   - Tailwind 기본 팔레트·글자 크기·모서리·그림자는 지웠다(initial).
+     그래서 정해진 단계 밖의 값은 클래스로 존재하지 않는다.
+   - 모든 숫자는 이 플레이북에서 새로 정했다. 어떤 사이트에서도 색을
+     뽑아 오지 않았다.
+   ========================================================================== */
+
+/* ---- 프리셋·모드 변형 -------------------------------------------------- */
+@custom-variant calm (&:where([data-preset="calm"], [data-preset="calm"] *));
+@custom-variant friendly (&:where([data-preset="friendly"], [data-preset="friendly"] *));
+@custom-variant dark (&:where([data-mode="dark"], [data-mode="dark"] *));
+/* hover는 따로 정의하지 않는다: Tailwind 4의 hover:는 이미 @media (hover: hover) 안에서만 동작해
+   터치 기기의 "두 번 탭" 문제가 없다. (괄호 한 줄 형식으로 다시 정의하면 CSS가 깨지니 주의) */
+
+/* ---- 테마 (기본값 = friendly + light) ---------------------------------- */
+@theme {
+  /* 기본 팔레트 제거: 역할 색만 존재 */
+  --color-*: initial;
+
+  /* 면 */
+  --color-bg: #f4f5f7;          /* 페이지 바탕 — 순백 금지 */
+  --color-surface: #fcfcfd;     /* 카드·입력칸·창 */
+  --color-surface-2: #ebedf1;   /* 은은한 채움, 눌린 상태, 스켈레톤 */
+  --color-scrim: rgb(14 16 20 / 0.48); /* 창 뒤 어둡게 */
+
+  /* 선 */
+  --color-line: #dfe2e8;        /* 구분선·카드 테두리 (장식) */
+  --color-line-strong: #7f8692; /* 입력칸 테두리 — 배경 대비 3:1 이상 */
+
+  /* 글자 */
+  --color-ink: #191c21;         /* 본문·제목 */
+  --color-ink-2: #4d535e;       /* 보조 설명 */
+  --color-ink-3: #636a76;       /* 메타·안내 글씨 — 4.5:1 이상 */
+
+  /* 행동 */
+  --color-accent: #3e5f6b;      /* 사이트마다 하나. brief에서 바꾼다 (예시 값: 채도 낮은 청회색 — 주 버튼이 튀지 않게) */
+  --color-accent-ink: #fcfcfd;  /* 강조색 위 글자 */
+  --color-accent-hover: color-mix(in oklab, var(--color-accent) 86%, var(--color-ink));
+  --color-accent-soft: color-mix(in oklab, var(--color-accent) 10%, var(--color-surface));
+  --color-primary: var(--color-accent);         /* 주 버튼 바탕 */
+  --color-primary-ink: var(--color-accent-ink); /* 주 버튼 글자 */
+  --color-primary-hover: var(--color-accent-hover);
+  --color-focus: var(--color-accent);
+
+  /* 상태 — 채도 낮게, 의미에만 */
+  --color-danger: #b83229;
+  --color-success: #2b7449;
+  --color-warning: #8a5d00;
+
+  /* 글꼴 — 모두 SIL OFL 1.1 (상업 사용·임베드 가능) */
+  --font-*: initial;
+  --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont,
+    "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+  --font-display: var(--font-sans);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* 글자 크기 — 12 미만 금지. 각 단계에 줄 간격이 붙어 있다 */
+  --text-*: initial;
+  --text-caption: 0.75rem;      /* 12 — 그림 설명, 법적 문구 */
+  --text-caption--line-height: 1.5;
+  --text-label: 0.8125rem;      /* 13 — 라벨, 배지, 메타 */
+  --text-label--line-height: 1.45;
+  --text-body-sm: 0.875rem;     /* 14 — 보조 본문, 버튼(sm) */
+  --text-body-sm--line-height: 1.55;
+  --text-body: 1rem;            /* 16 — UI 기본 */
+  --text-body--line-height: 1.6;
+  --text-reading: 1.0625rem;    /* 17 — 긴 글 본문 */
+  --text-reading--line-height: 1.75;
+  --text-title-sm: 1.25rem;     /* 20 — 카드 제목(큰), 창 제목 */
+  --text-title-sm--line-height: 1.4;
+  --text-title: 1.5rem;         /* 24 — 섹션 제목 */
+  --text-title--line-height: 1.35;
+  --text-title-lg: 1.75rem;     /* 28 — 글 소제목(h2), 페이지 제목 */
+  --text-title-lg--line-height: 1.3;
+  --text-display-sm: clamp(1.875rem, 1.4rem + 2vw, 2.5rem);  /* 30→40 */
+  --text-display-sm--line-height: 1.2;
+  --text-display: clamp(2.25rem, 1.5rem + 3.2vw, 3.5rem);    /* 36→56 */
+  --text-display--line-height: 1.15;
+  --text-display-lg: clamp(2.75rem, 1.6rem + 5vw, 5rem);     /* 44→80 */
+  --text-display-lg--line-height: 1.08;
+
+  --tracking-display: -0.025em; /* 큰 한글 제목은 살짝 좁게 */
+  --tracking-title: -0.015em;
+  --tracking-normal: 0em;
+  --tracking-label: 0.08em;     /* 작은 대문자 라벨 (calm) */
+
+  --leading-tight: 1.15;
+  --leading-snug: 1.35;
+  --leading-ui: 1.6;
+  --leading-reading: 1.75;
+
+  /* 모서리 */
+  --radius-*: initial;
+  --radius-control: 10px;       /* 버튼·입력칸 */
+  --radius-check: 6px;          /* 체크박스 (20px 상자) */
+  --radius-chip: 999px;         /* 칩·배지 */
+  --radius-card: 16px;          /* 카드 */
+  --radius-media: 12px;         /* 카드 안 이미지 */
+  --radius-dialog: 20px;        /* 창·서랍 */
+
+  /* 그림자 — 3단계뿐 */
+  --shadow-*: initial;
+  --shadow-card: 0 1px 2px rgb(25 28 33 / 0.06), 0 4px 16px -8px rgb(25 28 33 / 0.1);
+  --shadow-raised: 0 12px 32px -12px rgb(25 28 33 / 0.22), 0 2px 6px rgb(25 28 33 / 0.06);
+  --shadow-overlay: 0 32px 80px -24px rgb(25 28 33 / 0.38);
+
+  /* 움직임 — 빠르게 반응, 느리게 등장하지 않는다 */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --animate-fade-in: fade-in 200ms var(--ease-standard) both;
+  --animate-rise-in: rise-in 240ms var(--ease-standard) both;
+  --animate-sheet-in: sheet-in 280ms var(--ease-standard) both;
+  --animate-shimmer: shimmer 1.4s linear infinite;
+
+  @keyframes fade-in { from { opacity: 0 } to { opacity: 1 } }
+  @keyframes rise-in { from { opacity: 0; transform: translateY(8px) scale(0.98) } to { opacity: 1; transform: none } }
+  @keyframes sheet-in { from { transform: translateX(100%) } to { transform: none } }
+  @keyframes shimmer { from { background-position: 200% 0 } to { background-position: -200% 0 } }
+}
+
+/* ---- 프리셋 값 ----------------------------------------------------------
+   friendly = 산뜻하고 친근한 / calm = 차분하고 고급스러운
+   light = 쓰는 사이트(예약·쇼핑·글·커뮤니티) / dark = 보여주는 사이트(포트폴리오·초대장·갤러리)
+   ------------------------------------------------------------------------ */
+
+/* 파생 값은 프리셋이 붙은 요소마다 다시 계산한다
+   (var()는 선언된 요소에서 계산되므로, 감싸는 요소에 프리셋을 붙여도 맞게 나오도록) */
+[data-preset] {
+  --color-accent-hover: color-mix(in oklab, var(--color-accent) 86%, var(--color-ink));
+  --color-accent-soft: color-mix(in oklab, var(--color-accent) 10%, var(--color-surface));
+  --color-primary: var(--color-accent);
+  --color-primary-ink: var(--color-accent-ink);
+  --color-primary-hover: var(--color-accent-hover);
+  --color-focus: var(--color-accent);
+}
+
+[data-preset="friendly"] {
+  --color-bg: #f4f5f7;
+  --color-surface: #fcfcfd;
+  --color-surface-2: #ebedf1;
+  --color-scrim: rgb(14 16 20 / 0.48);
+  --color-line: #dfe2e8;
+  --color-line-strong: #7f8692;
+  --color-ink: #191c21;
+  --color-ink-2: #4d535e;
+  --color-ink-3: #636a76;
+  --color-accent: #3e5f6b;
+  --color-accent-ink: #fcfcfd;
+  --color-danger: #b83229;
+  --color-success: #2b7449;
+  --color-warning: #8a5d00;
+}
+
+[data-preset="friendly"][data-mode="dark"] {
+  --color-bg: #14161a;
+  --color-surface: #1c1f24;
+  --color-surface-2: #262a31;
+  --color-scrim: rgb(0 0 0 / 0.6);
+  --color-line: #31353d;
+  --color-line-strong: #6c7380;
+  --color-ink: #eceef2;
+  --color-ink-2: #aeb4bf;
+  --color-ink-3: #8f96a2;
+  --color-accent: #9dbcc6;
+  --color-accent-ink: #14161a;
+  --color-danger: #f0857e;
+  --color-success: #7fcb9c;
+  --color-warning: #e3b95c;
+  --shadow-card: 0 0 0 1px var(--color-line);
+  --shadow-raised: 0 0 0 1px var(--color-line), 0 16px 40px -12px rgb(0 0 0 / 0.6);
+  --shadow-overlay: 0 0 0 1px var(--color-line), 0 32px 80px -24px rgb(0 0 0 / 0.7);
+}
+
+[data-preset="calm"] {
+  --color-bg: #f2f0eb;          /* 따뜻한 미색 (노란 기 적게) */
+  --color-surface: #fbf9f4;
+  --color-surface-2: #ebe6dc;
+  --color-scrim: rgb(20 18 15 / 0.45);
+  --color-line: #ddd6c9;
+  --color-line-strong: #8f887c;
+  --color-ink: #1e1c18;
+  --color-ink-2: #57524a;
+  --color-ink-3: #6b655b;
+  --color-accent: #2f4a6b;      /* 예시: 먹빛 남색. 한 가지 의미(상태 하나)에만 */
+  --color-accent-ink: #fbf9f4;
+  /* calm의 주 버튼은 강조색이 아니라 진한 무채색 */
+  --color-primary: #24221e;
+  --color-primary-ink: #f7f4ee;
+  --color-primary-hover: #3a3731;
+  --color-focus: #1e1c18;
+  --color-danger: #a3302a;
+  --color-success: #3f6b3a;
+  --color-warning: #7e5a12;
+
+  --font-display: "Noto Serif KR", "Nanum Myeongjo", "AppleMyungjo", serif;
+
+  --radius-control: 2px;
+  --radius-check: 2px;
+  --radius-chip: 2px;
+  --radius-card: 0px;
+  --radius-media: 0px;
+  --radius-dialog: 4px;
+
+  /* 그림자 대신 선과 여백으로 나눈다 */
+  --shadow-card: 0 0 0 0 transparent;
+  --shadow-raised: 0 12px 32px -16px rgb(30 28 24 / 0.28);
+  --shadow-overlay: 0 24px 64px -24px rgb(30 28 24 / 0.38);
+}
+
+[data-preset="calm"][data-mode="dark"] {
+  --color-bg: #12110f;
+  --color-surface: #1b1a17;
+  --color-surface-2: #2a2824;
+  --color-scrim: rgb(0 0 0 / 0.62);
+  --color-line: #34312c;
+  --color-line-strong: #736d63;
+  --color-ink: #eeeae2;
+  --color-ink-2: #b3ada2;
+  --color-ink-3: #948e83;
+  --color-accent: #a9bddb;
+  --color-accent-ink: #12110f;
+  --color-primary: #eeeae2;
+  --color-primary-ink: #12110f;
+  --color-primary-hover: #d8d3c9;
+  --color-focus: #eeeae2;
+  --color-danger: #e0796f;
+  --color-success: #8dbb84;
+  --color-warning: #d9b061;
+  --shadow-raised: 0 0 0 1px var(--color-line), 0 16px 40px -12px rgb(0 0 0 / 0.6);
+  --shadow-overlay: 0 0 0 1px var(--color-line), 0 32px 80px -24px rgb(0 0 0 / 0.7);
+}
+
+/* ---- 기본 바탕 ---------------------------------------------------------- */
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+  body,
+  [data-preset] {
+    background-color: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--leading-ui);
+    -webkit-font-smoothing: antialiased;
+  }
+  /* 한글은 단어 단위로 줄바꿈, 긴 URL만 강제로 끊는다 */
+  :where(body, [data-preset]) {
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+  :where(h1, h2, h3, h4) {
+    text-wrap: balance;
+  }
+  :where(p) {
+    text-wrap: pretty;
+  }
+  /* Tailwind 4는 버튼 커서를 기본으로 되돌린다 → 누를 수 있는 것은 손가락 */
+  :where(button, [role="button"], a[href], summary, label[for], select):not(:disabled, [aria-disabled="true"]) {
+    cursor: pointer;
+  }
+  ::placeholder {
+    color: var(--color-ink-3);
+    opacity: 1;
+  }
+  ::selection {
+    background: var(--color-accent-soft);
+    color: var(--color-ink);
+  }
+  /* 포커스 표시는 한 겹만. 키보드로 왔을 때만 보인다 */
+  :where(*):focus {
+    outline: none;
+  }
+  :where(*):focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 1ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 1ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* ---- 레이아웃 도구 ------------------------------------------------------ */
+@utility container-page {
+  width: 100%;
+  max-width: 1200px;
+  margin-inline: auto;
+  padding-inline: 16px;
+  @media (width >= 48rem) { padding-inline: 24px; }
+  @media (width >= 64rem) { padding-inline: 40px; }
+}
+/* 긴 글: 한글 한 줄 약 40자 */
+@utility container-reading {
+  width: 100%;
+  max-width: 700px;
+  margin-inline: auto;
+  padding-inline: 16px;
+}
+/* 은은한 질감 (선택) — 주인공보다 늘 조용하게 */
+@utility bg-texture {
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    color-mix(in oklab, var(--color-ink) 7%, transparent) 1px,
+    transparent 0
+  );
+  background-size: 22px 22px;
+}
+/* 작은 대문자 라벨 (calm에서 주로) */
+@utility eyebrow {
+  font-size: var(--text-label);
+  line-height: var(--text-label--line-height);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--color-ink-2);
+}
+/* 긴 글 본문 서식 — 글 읽기 패턴 전용 */
+@utility prose-reading {
+  font-size: var(--text-reading);
+  line-height: var(--leading-reading);
+  color: var(--color-ink);
+  & > * + * { margin-top: 1.5em; }          /* 문단 사이 */
+  & > h2 {
+    font-size: var(--text-title-lg);           /* 28 */
+    line-height: var(--text-title-lg--line-height);
+    letter-spacing: var(--tracking-title);
+    font-weight: 700;
+    margin-top: 64px;                          /* 위 여백 = 아래의 3배 이상 */
+  }
+  & > h3 {
+    font-size: var(--text-title-sm);           /* 20 */
+    line-height: var(--text-title-sm--line-height);
+    font-weight: 700;
+    margin-top: 40px;
+  }
+  & > :is(h2, h3) + * { margin-top: 20px; }
+  & strong { font-weight: 700; }
+  & a { color: var(--color-ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--color-line-strong); }
+  & figcaption { font-size: var(--text-body-sm); color: var(--color-ink-3); text-align: center; margin-top: 10px; }
+  & blockquote { border-left: 2px solid var(--color-line-strong); padding-left: 16px; color: var(--color-ink-2); }
+  & ul { list-style: disc; padding-left: 1.25em; }
+  & ol { list-style: decimal; padding-left: 1.25em; }
+  & li + li { margin-top: 0.5em; }
+  & code { font-family: var(--font-mono); font-size: 0.9em; background: var(--color-surface-2); padding: 0.1em 0.35em; border-radius: 4px; }
+}
