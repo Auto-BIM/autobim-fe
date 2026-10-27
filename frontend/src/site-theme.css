@@ -1,0 +1,33 @@
+/* 도면3D 사이트 테마 — design/tokens.css의 calm 프리셋 위에 덮어쓴다 (design-site 3단계).
+ *
+ * 2026-10-28 사용자 요청: 참고 사이트(R19)처럼 바탕을 무채색 밝은 회색으로, 제목 글꼴을 가늘고 좁은 명조 느낌으로.
+ * 저작권: 참고 사이트의 글꼴 파일·이름은 쓰지 않는다. 비슷한 "느낌"의 공개 글꼴(SIL OFL)로 대신한다.
+ *   - 제목 라틴·숫자: Instrument Serif (OFL) — 좁고 대비 큰 명조
+ *   - 제목 한글: Noto Serif KR 400 (OFL) — 굵게 쓰지 않고 보통 굵기로
+ *   - 본문·UI: Pretendard 그대로
+ * 색은 "밝은 회색 바탕"이라는 흔한 성질만 같고, 값은 우리 대비 기준(check-contrast)으로 새로 정했다.
+ */
+[data-preset="calm"] { /* 어두운 모드는 tokens.css의 [calm][dark]가 더 구체적이라 그대로 유지된다 */
+  --color-bg: #efefed;          /* 무채색 밝은 회색 (아주 약간 따뜻하게) — 순백 금지 */
+  --color-surface: #f8f8f6;
+  --color-surface-2: #e4e4e1;
+  --color-line: #d6d6d2;
+  --color-line-strong: #868680;
+  --color-ink: #161615;
+  --color-ink-2: #4c4c49;
+  --color-ink-3: #5f5f5b;
+  --color-primary: #1b1b1a;
+  --color-primary-ink: #f6f6f4;
+  --color-primary-hover: #33332f;
+  --color-focus: #161615;
+}
+
+[data-preset="calm"] {
+  --font-display: "Instrument Serif", "Noto Serif KR", "Nanum Myeongjo", "AppleMyungjo", serif;
+  --tracking-display: -0.02em;
+}
+
+/* 제목은 보통 굵기로 — 가는 명조가 이 사이트의 느낌. (부품·페이지의 font-semibold보다 우선하도록 레이어 밖에 둔다) */
+[data-preset="calm"] .font-display {
+  font-weight: 400;
+}
