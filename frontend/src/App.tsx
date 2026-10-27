@@ -3,8 +3,8 @@
 //
 // 어느 화면을 보여줄지는 "작업(job)의 상태"로만 정한다. 화면 상태를 따로 들고 있지 않으면
 // 새로 고침하거나 주소(#job-…)를 공유해도 같은 화면이 나온다.
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
-import { Button, Dropzone, EmptyState, ProgressBar, SiteHeader, SpecList, Stepper, ToastProvider } from "@design";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { Button, EmptyState, ProgressBar, SiteHeader, SpecList, Stepper, ToastProvider, cx } from "@design";
 import { ACCEPT, ApiError, MAX_UPLOAD_MB, createJob, errorText } from "./api";
 import { useJob } from "./useJob";
 import { Workspace } from "./Workspace";
@@ -24,6 +24,9 @@ const PlanIcon = () => (
 
 // 주소 #job-<작업 ID> — 결과를 다시 열거나 팀원에게 보낼 수 있게
 const jobFromHash = () => (location.hash.match(/^#job-([0-9a-f]{32})$/) ?? [])[1] ?? null;
+// 메뉴 페이지 — 첫 화면에는 글을 거의 두지 않고, 설명은 메뉴에서 찾아가게 한다
+type Page = "home" | "how" | "about";
+const pageFromHash = (): Page => (location.hash === "#how" ? "how" : location.hash === "#about" ? "about" : "home");
 
 export default function App() {
   return (
@@ -35,12 +38,17 @@ export default function App() {
 
 function Shell() {
   const [jobId, setJobId] = useState<string | null>(jobFromHash);
+  const [page, setPage] = useState<Page>(pageFromHash);
   const { job, error, busy, track } = useJob(jobId);
   const [uploading, setUploading] = useState(false);
   const [uploadErr, setUploadErr] = useState<string>();
 
   useEffect(() => {
-    const onHash = () => setJobId(jobFromHash());
+    const onHash = () => {
+      setJobId(jobFromHash());
+      setPage(pageFromHash());
+      window.scrollTo({ top: 0 });
+    };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
@@ -82,7 +90,11 @@ function Shell() {
 
   // ─── 지금 보여줄 화면 ───
   let content;
-  if (!jobId) {
+  if (!jobId && page === "how") {
+    content = <HowPage />;
+  } else if (!jobId && page === "about") {
+    content = <AboutPage />;
+  } else if (!jobId) {
     content = <UploadStage busy={uploading} error={uploadErr} onFile={onFile} onSample={trySample} />;
   } else if (error && !job) {
     content = (
@@ -121,12 +133,15 @@ function Shell() {
       <SiteHeader
         brand={<a href="#" onClick={(e) => { e.preventDefault(); restart(); }} className="tracking-title">Auto-BIM</a>}
         items={[
-          { label: "변환하기", href: "#", current: !jobId },
-          { label: "사용법", href: "#how" },
+          { label: "변환하기", href: "#", current: !jobId && page === "home" },
+          { label: "사용법", href: "#how", current: !jobId && page === "how" },
+          { label: "소개", href: "#about", current: !jobId && page === "about" },
         ]}
         menuLabel="메뉴"
+        navAlign="center"
       />
-      <main className="container-page flex-1 pb-24">{content}</main>
+      {/* 첫 화면은 무대가 화면 끝까지(container 밖), 나머지는 본문 폭 */}
+      <main className={cx("flex-1", jobId || page !== "home" ? "container-page pb-24" : "")}>{content}</main>
       <footer className="border-t border-line">
         <div className="container-page flex flex-wrap justify-between gap-2 py-6 text-label text-ink-3">
           <span>로그인 없이 써요. 결과는 작업 주소를 아는 사람만 열 수 있어요.</span>
@@ -137,73 +152,139 @@ function Shell() {
   );
 }
 
+/** 첫 화면 — 글은 거의 없이 가운데 3D 모형이 주인공. 할 수 있는 일은 "평면도 올리기" 하나. 설명은 메뉴(사용법·소개)로. */
 function UploadStage({ busy, error, onFile, onSample }: { busy: boolean; error?: string; onFile: (f: File) => void; onSample: () => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  const [over, setOver] = useState(false);
+
+  // 화면 어디에 끌어다 놓아도 받는다
+  useEffect(() => {
+    let depth = 0;
+    const hasFile = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes("Files");
+    const enter = (e: DragEvent) => { if (hasFile(e)) { depth++; setOver(true); } };
+    const leave = () => { depth = Math.max(0, depth - 1); if (!depth) setOver(false); };
+    const overFn = (e: DragEvent) => { if (hasFile(e)) e.preventDefault(); };
+    const drop = (e: DragEvent) => {
+      if (!hasFile(e)) return;
+      e.preventDefault();
+      depth = 0;
+      setOver(false);
+      const f = e.dataTransfer?.files?.[0];
+      if (f) onFile(f);
+    };
+    window.addEventListener("dragenter", enter);
+    window.addEventListener("dragleave", leave);
+    window.addEventListener("dragover", overFn);
+    window.addEventListener("drop", drop);
+    return () => {
+      window.removeEventListener("dragenter", enter);
+      window.removeEventListener("dragleave", leave);
+      window.removeEventListener("dragover", overFn);
+      window.removeEventListener("drop", drop);
+    };
+  }, [onFile]);
+
   return (
-    <>
-      <section aria-label="샘플 모형" className="pt-6 lg:pt-8">
-        <Suspense fallback={<div className="aspect-4/3 w-full sm:aspect-16/10 lg:aspect-21/9" />}>
-          <HeroModel />
-        </Suspense>
-      </section>
+    <section aria-label="평면도 올리기" className="h-stage relative overflow-hidden">
+      <h1 className="sr-only">Auto-BIM — 평면도를 올리면 벽·문·창이 나뉜 3D로</h1>
+      {/* 3D는 화면 끝까지, 글·버튼은 본문 폭(container) 안에 맞춘다(HeroModel 안에서) */}
+      <Suspense fallback={null}>
+        <HeroModel className="absolute inset-0" />
+      </Suspense>
 
-      <section className="grid items-center gap-10 pt-12 pb-20 lg:grid-cols-12 lg:pt-16">
-        <div className="lg:col-span-5">
-          <p className="eyebrow mb-4">2D 평면도 → 객체별 3D</p>
-          <h1 className="text-display tracking-display font-display">
-            평면도를 올리면
-            <br />
-            <span className="text-ink-3">벽·문·창이 나뉜 3D로</span>
-          </h1>
-          <p className="mt-6 max-w-md text-body text-ink-2">
-            이미지나 DXF 평면도에서 벽·문·창을 따로 인식해 3D로 세워요. 확실하지 않은 곳은 임의로 고치지 않고 물어보고, 스케치업·캐드에서 벽마다 편집할 수 있는 .dxf로 받아요.
-          </p>
-        </div>
-        <div className="lg:col-span-7">
-          <Dropzone
-            onFile={onFile}
-            accept={ACCEPT}
-            icon={<PlanIcon />}
-            title="평면도를 끌어다 놓으세요"
-            hint={`PNG · JPG · BMP · TIFF · WEBP · DXF, ${MAX_UPLOAD_MB}MB까지`}
-            busy={busy}
-            busyText="올리는 중…"
-            error={error}
-          />
-          <div className="mt-3">
-            <Button variant="text" onClick={onSample}>샘플 평면도로 해 보기</Button>
-          </div>
-        </div>
-      </section>
+      {/* 아래 가운데: 짧은 이름표 + 하는 일 하나 */}
+      <div className="absolute bottom-8 left-1/2 flex w-full max-w-sm -translate-x-1/2 flex-col items-center gap-3 px-4 text-center">
+        <p className="eyebrow">2D 평면도 → 벽·문·창이 나뉜 3D</p>
+        <input
+          ref={input}
+          type="file"
+          accept={ACCEPT}
+          className="sr-only"
+          tabIndex={-1}
+          aria-hidden
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            e.target.value = "";
+            if (f) onFile(f);
+          }}
+        />
+        <Button size="lg" loading={busy} onClick={() => input.current?.click()}>평면도 올리기</Button>
+        <p className="text-label text-ink-3">
+          이미지·DXF를 끌어다 놓아도 돼요 ·{" "}
+          <button type="button" onClick={onSample} className="underline underline-offset-4 hover:text-ink">샘플로 해 보기</button>
+        </p>
+        {error ? <p role="alert" className="text-body-sm text-danger">{error}</p> : null}
+      </div>
 
-      <section id="how" className="grid gap-10 border-t border-line pt-12 lg:grid-cols-12">
-        <div className="lg:col-span-7">
-          <h2 className="text-title font-display">어떻게 바뀌나요</h2>
-          <ol className="mt-6 grid gap-6 sm:grid-cols-3">
-            {[
-              ["올리기", "평면도 이미지나 DXF를 올려요."],
-              ["인식", "벽·문·창을 따로 찾아 3D를 만들고, 확실하지 않은 곳을 표시해요."],
-              ["확인·받기", "표시된 곳을 확인하거나 고친 뒤, 벽별 블록 .dxf로 받아요."],
-            ].map(([t, d], i) => (
-              <li key={t} className="border-t border-ink pt-3">
-                <span className="text-label tabular-nums text-ink-3">{String(i + 1).padStart(2, "0")}</span>
-                <p className="mt-1 text-body font-semibold">{t}</p>
-                <p className="mt-1 text-body-sm text-ink-2">{d}</p>
-              </li>
-            ))}
-          </ol>
+      {/* 파일을 끌고 들어오면 무대 전체가 받는 자리가 된다 */}
+      {over ? (
+        <div className="pointer-events-none absolute inset-4 grid place-items-center border border-dashed border-ink bg-bg/70">
+          <p className="font-display text-display-sm">놓으면 올라가요</p>
         </div>
-        <div className="lg:col-span-5">
-          <SpecList
-            items={[
-              { label: "입력", value: "평면도 이미지 · DXF", note: "DXF 변환은 준비 중" },
-              { label: "인식", value: "벽 · 문 · 창 따로" },
-              { label: "크기", value: "치수·외벽 두께로 추정", note: "건물 가로 길이를 넣으면 정확해져요" },
-              { label: "결과", value: ".dxf (벽별 블록) · .glb · .json" },
-              { label: "화면", value: "PC 기준" },
-            ]}
-          />
+      ) : null}
+    </section>
+  );
+}
+
+/** 메뉴: 사용법 */
+function HowPage() {
+  return (
+    <div className="grid gap-12 pt-16 lg:grid-cols-12">
+      <div className="lg:col-span-7">
+        <p className="eyebrow mb-4">사용법</p>
+        <h1 className="text-display tracking-display font-display">세 단계면 돼요</h1>
+        <ol className="mt-10 grid gap-8 sm:grid-cols-3">
+          {[
+            ["올리기", "평면도 이미지나 DXF를 첫 화면에 끌어다 놓아요."],
+            ["확인", "벽·문·창이 따로 인식돼요. 확실하지 않은 곳은 노란 점선으로 표시하고 물어봐요. 크기가 추정이면 건물 가로 길이를 넣어 맞춰요."],
+            ["받기", "고친 내용을 한 번에 적용해 다시 만든 뒤, 벽마다 블록으로 나뉜 .dxf를 받아 스케치업·캐드에서 열어요."],
+          ].map(([t, d], i) => (
+            <li key={t} className="border-t border-ink pt-3">
+              <span className="text-label tabular-nums text-ink-3">{String(i + 1).padStart(2, "0")}</span>
+              <p className="mt-1 text-body font-semibold">{t}</p>
+              <p className="mt-1 text-body-sm text-ink-2">{d}</p>
+            </li>
+          ))}
+        </ol>
+      </div>
+      <div className="lg:col-span-5">
+        <SpecList
+          items={[
+            { label: "입력", value: "PNG · JPG · BMP · TIFF · WEBP · DXF", note: `${MAX_UPLOAD_MB}MB까지 · DXF 변환은 준비 중` },
+            { label: "인식", value: "벽 · 문 · 창 따로" },
+            { label: "크기", value: "도면 치수 → 없으면 외벽 두께로 추정", note: "건물 가로 길이를 넣으면 정확해져요" },
+            { label: "결과", value: ".dxf (벽별 블록) · .glb · .json" },
+            { label: "화면", value: "PC 기준" },
+          ]}
+        />
+      </div>
+    </div>
+  );
+}
+
+/** 메뉴: 소개 */
+function AboutPage() {
+  return (
+    <div className="grid gap-12 pt-16 lg:grid-cols-12">
+      <div className="lg:col-span-7">
+        <p className="eyebrow mb-4">소개</p>
+        <h1 className="text-display tracking-display font-display">도면 한 장에서 편집할 수 있는 3D 뼈대까지</h1>
+        <div className="prose-reading mt-8 space-y-4 text-ink-2">
+          <p>설계 초기에는 2D 평면도를 보고 캐드·스케치업에서 선을 따고 벽을 세우는 반복 작업이 필요해요. Auto-BIM은 이 일을 줄이기 위해 평면도에서 벽·문·창을 따로 인식해, 요소마다 편집할 수 있는 3D 모델을 만들어요.</p>
+          <p>인식이 확실하지 않은 곳은 임의로 고치지 않아요. 확인이 필요한 요소와 크기 추정 여부를 보여 주고, 사용자가 확인하거나 고친 값으로 다시 만들어요.</p>
         </div>
-      </section>
-    </>
+      </div>
+      <div className="lg:col-span-5">
+        <SpecList
+          items={[
+            { label: "과제", value: "AI P-실무프로젝트 (캡스톤)", note: "2026.9 – 2026.12" },
+            { label: "팀", value: "2분반 3조" },
+            { label: "프론트", value: "강민재 · 임준형" },
+            { label: "백엔드", value: "조예준 · 조항민" },
+            { label: "인식 모델", value: "CubiCasa5K (비상업 라이선스)" },
+          ]}
+        />
+      </div>
+    </div>
   );
 }

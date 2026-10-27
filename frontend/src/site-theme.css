@@ -43,3 +43,9 @@
   --color-review: #a87400;      /* 확인 필요 (점선) */
   --color-model-wall: #e8e7e3;  /* 3D 벽 */
 }
+
+/* 첫 화면 무대 — 머리 메뉴(4rem)를 뺀 화면 높이 전부를 3D 모형에 */
+.h-stage {
+  height: calc(100dvh - 4rem);
+  min-height: 32rem;
+}

@@ -7,6 +7,7 @@
  * - 메뉴 항목은 모두 같은 색·같은 굵기. 현재 페이지만 진하고 굵게. 항목마다 색을 다르게 하지 않는다.
  * - 맨 위 광고·공지 띠를 두지 않는다. 꼭 필요한 공지는 한 줄, 닫을 수 있게.
  * - 내려가면 바탕이 생기고 아래 선 1px. 그 외 장식 없음.
+ * - navAlign="center": 메뉴를 화면 가운데에 (무대형 첫 화면처럼 이름·메뉴·여백만 있는 머리에). 기본은 오른쪽.
  */
 import { useEffect, useState, type ReactNode } from "react";
 import { cx } from "./cx";
@@ -21,6 +22,7 @@ export function SiteHeader({
   secondary,
   sticky = true,
   menuLabel,
+  navAlign = "end",
 }: {
   brand: ReactNode;
   items: NavItem[];
@@ -30,6 +32,8 @@ export function SiteHeader({
   sticky?: boolean;
   /** 메뉴 버튼을 아이콘 대신 글자로 (예: "메뉴", "Menu") — 사이트 분위기에 따라 */
   menuLabel?: string;
+  /** 메뉴 위치: 오른쪽(기본) 또는 가운데 */
+  navAlign?: "end" | "center";
 }) {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -55,11 +59,11 @@ export function SiteHeader({
         scrolled ? "border-b border-line bg-bg/92 backdrop-blur-md" : "border-b border-transparent",
       )}
     >
-      <div className="container-page flex h-16 items-center gap-6">
+      <div className="container-page relative flex h-16 items-center gap-6">
         <div className="mr-auto flex shrink-0 items-center text-body font-bold calm:font-display calm:font-semibold">
           {brand}
         </div>
-        <nav aria-label="주 메뉴" className="hidden md:block">
+        <nav aria-label="주 메뉴" className={cx("hidden md:block", navAlign === "center" && "md:absolute md:left-1/2 md:-translate-x-1/2")}>
           <ul className="flex items-center gap-7">
             {items.slice(0, 5).map((it) => (
               <li key={it.href}>
