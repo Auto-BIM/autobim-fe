@@ -1,69 +1,77 @@
-# 도면3D — 건축 평면도를 3D 모델로
+# Auto-BIM 프론트엔드
 
-DXF 평면도를 올리면 벽 레이어를 골라 높이만큼 세우고, 웹에서 돌려 본 뒤 GLB·OBJ·STL로 내려받는 졸업작품.
-범용 풀스택 키트(`AGENTS.md` 등)와 디자인 플레이북(`design/`)으로 시작한 첫 시험 사이트다.
+2D 평면도(이미지·DXF)를 올리면 벽·문·창이 **객체별로 나뉜 3D**와 **벽별 블록 .dxf**를 만들어 주는 Auto-BIM의 웹 화면이다.
+인식이 확실하지 않은 요소는 임의로 고치지 않고 사용자에게 보여 주고, 사용자가 확인·수정하면 다시 만든다.
+
+- 백엔드: 팀 저장소 [Auto-BIM/autobim-be](https://github.com/Auto-BIM/autobim-be) — **계약(API 약속서)은 그쪽 `docs/api.md`**
+- 이 저장소: 프론트엔드만. 처음 보는 사람은 [`FRONTEND_GUIDE.md`](FRONTEND_GUIDE.md)부터 (코드가 어떻게 돌아가는지 설명)
+- 규칙: `AGENTS.md`(풀스택 플레이북, 0장에 이 프로젝트 정보) · `design/`(디자인 플레이북) · `SITE_REQUEST.md`(요청서와 디자인 결정)
 
 ```
-frontend/   React + three.js (Vite)          → Vercel
-backend/    Python · FastAPI · RQ 작업 처리기 → 클라우드 (Docker)
-design/     디자인 플레이북 (규칙·디자인 값·부품)
-SITE_REQUEST.md  사이트 요청서 (목적·사용자·느낌·기능) — 결정 줄이 맨 아래
-AGENTS.md        규칙집 (0장에 이 프로젝트 정보)
+frontend/   React 19 + three.js + Tailwind 4 (Vite) → Vercel
+design/     디자인 플레이북 (규칙·디자인 값·부품) — frontend가 @design으로 가져다 씀
 ```
 
-## 지금 되는 것 (v0.1, 2026-10-27)
-- DXF 업로드 → 형식 검사(내용으로 판단, DWG는 안내) → 레이어·단위·크기 분석 → 2D 미리보기
-- 벽 레이어 고르기(이름으로 추천), 벽 그리는 방식 자동 판별(두 줄 / 중심선), 높이·두께 설정
-- 변환 작업을 대기열로(요청 안에서 변환하지 않음) → 진행 표시 → 3D 뷰어(시점 3개, 단면 높이)
-- GLB(웹·Y위), OBJ(Y위), STL(Z위, 3D 프린팅) 내려받기, 결과 주소 `#job-<id>`로 7일 동안 다시 보기
-- 이미지(PNG·JPG)는 받아서 위치 정보를 지우고 보관만 — 변환은 2단계 작업
-- 시험: `backend/tests` 5개(업로드→변환→파일, DWG·가짜 파일 거절, 이미지 EXIF 제거, 잘못된 ID·레이어), 브라우저로 샘플 도면 끝까지 확인
+## 지금 되는 것 (2026-10-28)
 
-- 첫 화면: 샘플 평면도 3D 모형 — 끌어서 돌리기, 누르면 그 자리로 다가가 눈높이 아래로 잘라 방 안을 들여다보기(Esc·전체 보기로 돌아옴), 처음 한 번 벽이 바닥 선에서 솟아오름(움직임 줄이기면 생략)
+- 첫 화면: 샘플 평면도 3D 모형(끌어서 돌리기, 눌러서 들여다보기, 처음 1회 벽이 솟아오름) + 업로드
+- 업로드 → 작업 생성(`POST /api/jobs`) → 상태 따라가기(폴링) → 결과
+- 작업 화면
+  - **3D**: 서버가 만든 .glb. 벽(노드 이름 = 벽 ID)과 문·창을 눌러 고르기, 시점 3개, 단면 높이
+  - **평면**: Plan(중심선 + 두께)을 SVG로. 고친 내용이 적용 전에 바로 보임(미리보기)
+  - **확인 필요**(review_items) 목록 → 누르면 그 요소로
+  - **속성 고치기**: 벽(종류·두께·높이), 문·창(종류·폭·높이·창대 높이·위치), 지우기, 벽 가운데에 문·창 추가, "맞아요, 확인했어요"
+  - **실제 크기 맞추기**: 건물 가로 길이(m) 또는 벽 하나의 실제 길이
+  - **바뀔 내용** 목록(하나씩 되돌리기) → "적용해서 다시 만들기" = `POST /supplement` 한 번 → 리비전 +1
+  - 다시 만드는 동안 이전 결과를 계속 보여 줌, 실패하면 이유 + 이전 결과 유지
+  - 받기: **.dxf(벽별 블록)** · .glb · .json (파일 이름에 리비전)
+- 주소 `#job-<ID>`로 결과 다시 열기
+- 오류 코드 → 한국어 안내(`src/api.ts`의 표)
+
+확인: 팀 백엔드(Fake 모델)를 띄워 업로드 → 확인 → 수정 4가지 → 적용 → 리비전 1 → .dxf 받기 → 주소로 다시 열기, DXF 업로드(준비 중 안내), 잘못된 형식까지 브라우저로 끝까지 확인.
 
 ## 실행 (로컬)
 
 ```bash
-# 백엔드 — Docker 없이 (작업은 API 안 스레드에서)
-cd backend
-pip install -r requirements.txt
-python -m app.sample                 # samples/ 시험 도면 2개 만들기
-python -m app.hero_sample            # 첫 화면 3D 모형(frontend/public/sample/) 다시 만들기 — 변환 코드를 바꿨을 때
-uvicorn app.main:app --reload        # http://localhost:8000/api/docs
-python -m pytest -q tests
+# 1) 팀 백엔드 띄우기 (다른 터미널) — 자세한 건 autobim-be README
+git clone https://github.com/Auto-BIM/autobim-be
+cd autobim-be
+python3.11 -m venv .venv && source .venv/bin/activate     # Windows: .venv\Scripts\activate
+pip install -r requirements-dev.lock && pip install --no-deps -e .
+uvicorn app.main:app --reload                            # http://localhost:8000/docs
 
-# 백엔드 — Docker로 (API + 작업 처리기 + Redis, 운영과 같은 구조)
-docker compose up --build
-
-# 프론트
+# 2) 프론트
 cd frontend
 npm install
-npm run dev                          # http://localhost:5173 (/api는 8000으로 전달)
+npm run dev                                              # http://localhost:5173 (/api는 8000으로 전달)
 ```
 
+지금 백엔드 인식 모델은 **Fake**(어떤 그림을 올려도 같은 결과)라서, 화면 개발·시연 흐름 확인용이다.
+
 ## 배포
+
 | 부분 | 어디에 | 설정 |
 |---|---|---|
-| 프론트 | Vercel | 루트 디렉터리 `frontend`, 빌드 `npm run build`, 출력 `dist`. 환경 변수 `VITE_API_BASE=https://<백엔드 주소>` |
-| API | 클라우드의 컨테이너 서비스 (예: Cloud Run, Render, Fly.io — 서울 근처 지역) | `backend/Dockerfile`. `ALLOWED_ORIGINS=https://<vercel 주소>`, `REDIS_URL` |
-| 작업 처리기 | 같은 이미지, 명령만 `rq worker convert --url $REDIS_URL` | API와 **같은 파일 저장소**를 봐야 한다 → 아래 |
-| Redis | 관리형 Redis(무료 단계) | — |
-| 파일 저장소 | 지금은 디스크 폴더 | API와 작업 처리기가 다른 기계면 `backend/app/storage.py`를 오브젝트 스토리지(S3·GCS)로 바꾼다 — 다른 코드는 그대로 |
-| 정리 | 하루 한 번 `python -m app.cleanup` (예약 작업) | 7일 지난 도면·결과 삭제 |
+| 프론트 | Vercel | 루트 디렉터리 `frontend`, 빌드 `npm run build`, 출력 `dist`, 환경 변수 `VITE_API_BASE=https://<백엔드 주소>` |
+| 백엔드 | 팀(autobim-be 이슈 #7) | **CORS에 프론트 주소를 넣어야 함** — 지금은 CORS 설정이 없어서 다른 주소의 프론트가 부르면 막힌다(로컬은 Vite가 대신 전달해서 괜찮음) |
 
-비밀 값은 없다(로그인·외부 API 없음). `backend/.env.example`에 설정 이름과 기본값만 있다.
+## 백엔드 팀에 전할 것
 
-## 2달 일정 (제안 — 마감 2026-12 말)
-| 주 | 목표 | 완료 기준 |
-|---|---|---|
-| 1–2 | **실제 도면으로 검증** — 팀원·학과 DXF 10개 이상으로 시험, 실패 사례 모으기 | 10개 중 8개 이상이 고친 것 없이 3D로 나옴 |
-| 3–4 | **창·문 높이** — 창 레이어는 창턱(0.9m)·창 윗부분(2.1m) 벽을 남기고, 문은 문 위 벽(2.1m~) 남기기 | 샘플에서 창 아래·위 벽이 보임 |
-| 5 | **배포** — Vercel + 컨테이너 + 오브젝트 스토리지, 정리 예약 작업 | 외부에서 샘플 도면 끝까지 성공 |
-| 6–7 | **이미지 입력(2단계)** — 선 찾기 → 그림 위에 겹쳐 보여주고 고치기 → 기준 길이 찍기 → 같은 변환 | 깨끗한 스캔 평면도 3개 성공 |
-| 8 | **발표 준비** — 시연 도면 고정, 실패 화면 점검, 성능(큰 도면) 측정 | 시연 3번 연속 성공 |
+- **CORS**: 배포한 프론트 주소(Vercel)를 허용 출처로 (이슈 #7)
+- **업로드 크기 제한**: 정해지면 알려 주기 → `frontend/src/api.ts`의 `MAX_UPLOAD_MB`를 같은 값으로 (이슈 #4)
+- **glb 법선**: 지금 glb에 법선(normal)이 없어서 프론트에서 계산한다. 넣어 주면 더 정확한 음영
+- **review_items.message**가 영어 — 프론트는 `reason` 코드로 한국어를 보여 주고 message는 작게 덧붙인다. 한국어로 바꿔 주면 더 좋음
+- 계약(docs/api.md)이 바뀌면 `frontend/src/api.ts` 타입부터 고친다
 
-## 키트 사용 기록 (키트를 키우는 재료)
-- 풀스택 키트 `STACK_MAPPING.md`에 FastAPI 열이 없다 → 이 프로젝트에서 쓴 것: 업로드 크기 제한(직접 읽기), CORS, 보안 헤더 미들웨어, RQ 작업 대기열. 키트에 올릴 후보
-- 새 규칙 후보 "오래 걸리는 작업은 요청 안에서 하지 않는다 — 대기열 + 상태 확인 + 진행 표시" (아직 겪지 않음 → (예))
-- 디자인 플레이북에 새 부품 3개: `Dropzone`, `SpecList`(R19 라벨-값 표), `ProgressBar`. `SiteHeader`의 개발 모드 판별이 Next 전용이라 고침
-- 버그 하나 겪음: React `useEffect`에서 값을 돌려주는 화살표 함수(`() => setCut(...)`)가 정리 함수로 오해돼 화면이 하얗게 됨 → 중괄호로 감쌈
+## 다음 할 일 (프론트)
+
+1. 벽 추가(평면에서 두 점 찍기 → `add_walls`), 문·창 위치를 평면에서 끌어서 옮기기
+2. 법규·기준 수치 안내(계획서 목표 3) — 기준 수치 표를 백엔드와 정해서 속성 패널에 근거로 표시
+3. 실제 CubiCasa 모델이 붙으면(이슈 #5) 요소가 많은 도면으로 성능 점검(평면 SVG, 3D 고르기)
+4. 원본 평면도 이미지를 평면 보기 뒤에 겹쳐 보기(인식이 맞는지 눈으로 비교) — 백엔드에 원본 이미지 주소 API가 필요
+5. 배포(Vercel) + 백엔드 CORS 맞추기
+
+## 기록
+
+- 2026-10-27 처음엔 같은 저장소에 자체 백엔드(DXF 레이어 → 높이만큼 세우기)를 두고 시험했다(커밋 `09d50ec`). 팀 백엔드 계약이 있어 2026-10-28에 프론트만 남기고 계약에 맞춰 다시 짰다.
+- 첫 화면 샘플 모형(`frontend/public/sample/`)은 그때 만든 우리 샘플 도면을 변환해 둔 정적 파일이다. 만든 스크립트는 `09d50ec`의 `backend/app/hero_sample.py`.

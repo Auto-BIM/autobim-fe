@@ -6,7 +6,8 @@
 // - 움직임 줄이기(prefers-reduced-motion)면 솟아오르기·카메라 이동 없이 바로 바뀐다.
 // - 전체 보기에서는 휠 확대를 꺼서 페이지 스크롤을 가로채지 않는다. 들여다보기에서만 켠다.
 //
-// 샘플 모델은 우리가 만든 샘플 도면(backend/app/sample.py)을 `python -m app.hero_sample`로 변환한 정적 파일이다.
+// 샘플 모형(public/sample/plan.glb·plan.json)은 팀이 직접 만든 샘플 도면을 변환해 둔 정적 파일이다(서버 없이도 보이게).
+// 만든 스크립트는 첫 커밋(09d50ec)의 backend/app/hero_sample.py에 있다.
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
