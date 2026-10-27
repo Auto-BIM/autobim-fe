@@ -14,6 +14,7 @@
 
 - 서비스: Auto-BIM — 2D 평면도(이미지·DXF)에서 벽·문·창을 객체별로 인식해 3D(웹 뷰어)와 벽별 블록 .dxf를 만들고, 불확실한 요소는 사용자에게 확인·보충받는 웹 서비스 (캡스톤, 2026-09-01 ~ 2026-12-21)
 - 이 저장소의 범위: **프론트엔드만**. 백엔드는 팀 저장소 Auto-BIM/autobim-be(계약: docs/api.md·openapi.json)
+- **팀 저장소(Auto-BIM/autobim-be, Auto-BIM/autobim-fe 등)는 읽기만 한다.** 커밋·push·PR·이슈·댓글·설정 변경은 사용자가 그때그때 명시적으로 시킬 때만. 팀에 필요한 변경은 이 저장소 README "백엔드 팀에 전할 것"에 적어 사용자에게 넘긴다.
 - 스택: 프론트 React 19 + three.js + Tailwind 4 (Vite) → Vercel / 백(팀) Python 3.11 · FastAPI · Docker → Railway 또는 클라우드 / DB: 백엔드는 지금 없음(이슈 #4에서 영속 저장소)
 - 요금제 한도: 클라우드 학생 크레딧 — 변환 작업 CPU·메모리, 파일 저장 용량, 아웃바운드 전송량(결과 파일 내려받기). Vercel Hobby
 - 외부 API와 한도: 없음
