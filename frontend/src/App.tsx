@@ -8,6 +8,7 @@ import { ApiError, fileUrl, getJob, kb, sampleFile, startJob, upload, type Analy
 import { Plan2D } from "./Plan2D";
 // three.js(약 600KB)는 결과 화면에서만 불러온다 — 첫 화면을 가볍게 (풀스택 19장)
 const Viewer3D = lazy(() => import("./Viewer3D").then((m) => ({ default: m.Viewer3D })));
+const HeroModel = lazy(() => import("./HeroModel").then((m) => ({ default: m.HeroModel })));
 
 type Stage = "upload" | "review" | "running" | "result" | "failed";
 const STEPS = ["도면 올리기", "벽 고르기", "3D 만들기", "확인·받기"];
@@ -202,7 +203,13 @@ export default function App() {
 function UploadStage({ busy, error, onFile, onSample }: { busy: boolean; error?: string; onFile: (f: File) => void; onSample: () => void }) {
   return (
     <>
-      <section className="grid items-center gap-10 pt-16 pb-20 lg:grid-cols-12 lg:pt-24">
+      <section aria-label="샘플 모형" className="pt-6 lg:pt-8">
+        <Suspense fallback={<div className="aspect-4/3 w-full sm:aspect-16/10 lg:aspect-21/9" />}>
+          <HeroModel />
+        </Suspense>
+      </section>
+
+      <section className="grid items-center gap-10 pt-12 pb-20 lg:grid-cols-12 lg:pt-16">
         <div className="lg:col-span-5">
           <p className="eyebrow mb-4">건축 평면도 → 3D 모델</p>
           <h1 className="text-display font-semibold tracking-display font-display">

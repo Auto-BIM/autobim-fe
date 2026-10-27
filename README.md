@@ -19,6 +19,8 @@ AGENTS.md        규칙집 (0장에 이 프로젝트 정보)
 - 이미지(PNG·JPG)는 받아서 위치 정보를 지우고 보관만 — 변환은 2단계 작업
 - 시험: `backend/tests` 5개(업로드→변환→파일, DWG·가짜 파일 거절, 이미지 EXIF 제거, 잘못된 ID·레이어), 브라우저로 샘플 도면 끝까지 확인
 
+- 첫 화면: 샘플 평면도 3D 모형 — 끌어서 돌리기, 누르면 그 자리로 다가가 눈높이 아래로 잘라 방 안을 들여다보기(Esc·전체 보기로 돌아옴), 처음 한 번 벽이 바닥 선에서 솟아오름(움직임 줄이기면 생략)
+
 ## 실행 (로컬)
 
 ```bash
@@ -26,6 +28,7 @@ AGENTS.md        규칙집 (0장에 이 프로젝트 정보)
 cd backend
 pip install -r requirements.txt
 python -m app.sample                 # samples/ 시험 도면 2개 만들기
+python -m app.hero_sample            # 첫 화면 3D 모형(frontend/public/sample/) 다시 만들기 — 변환 코드를 바꿨을 때
 uvicorn app.main:app --reload        # http://localhost:8000/api/docs
 python -m pytest -q tests
 
