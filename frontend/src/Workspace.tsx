@@ -17,9 +17,9 @@ import { changeCount, changeList, emptyDraft, previewPlan, removedSet, toRequest
 // three.js는 무거워서(약 600KB) 이 화면에서만 불러온다
 const Viewer3D = lazy(() => import("./Viewer3D").then((m) => ({ default: m.Viewer3D })));
 
-type Props = { job: Job; busy: boolean; track: (j: Job) => void; onRestart: () => void };
+type Props = { job: Job; busy: boolean; track: (j: Job) => void; onRestart: () => void; onBuilding?: () => void };
 
-export function Workspace({ job, busy, track, onRestart }: Props) {
+export function Workspace({ job, busy, track, onRestart, onBuilding }: Props) {
   const plan = job.plan as Plan; // result_revision이 있으면 plan도 있다
   const toast = useToast();
   const [draft, setDraft] = useState<Draft>(emptyDraft);
@@ -87,6 +87,7 @@ export function Workspace({ job, busy, track, onRestart }: Props) {
               </Button>
             ) : null;
           })}
+          {onBuilding ? <Button variant="secondary" onClick={onBuilding}>건물로 보기 · 위층 추가</Button> : null}
           <Button variant="text" onClick={onRestart}>다른 도면</Button>
         </div>
       </div>

@@ -49,3 +49,15 @@
   height: calc(100dvh - 4rem);
   min-height: 32rem;
 }
+
+/* 건물 3D 색 (사용자 hero·defect 애니메이션의 색) — BuildingView가 읽는다 */
+[data-preset="calm"] {
+  --color-model-wall: #dddbd6;
+  --color-model-slab: #d2d0ca;
+  --color-model-edge: #4a4945;
+  --color-model-line: #2a2926;
+  --color-model-glass: #c9d6dc;
+  --color-model-door: #b9a27f;
+  --color-model-stair: #cfccc5;
+  --color-risk: #d9363e;         /* 위험 표시 (그래픽·제목). 바탕 대비 4.5:1 미만이라 작은 본문 글자에는 --color-danger */
+}

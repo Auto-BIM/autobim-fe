@@ -7,10 +7,13 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 import { Button, EmptyState, ProgressBar, SiteHeader, SpecList, Stepper, ToastProvider, cx } from "@design";
 import { ACCEPT, ApiError, MAX_UPLOAD_MB, createJob, errorText } from "./api";
 import { useJob } from "./useJob";
+import { SAMPLE_FLOORS } from "./sampleBuilding";
+import { buildingFromHash, buildingHash, defaultFloorHeight, type Building } from "./building";
 import { Workspace } from "./Workspace";
 
 // 첫 화면의 3D 모형도 three.js를 쓰므로 나중에 불러온다
-const HeroModel = lazy(() => import("./HeroModel").then((m) => ({ default: m.HeroModel })));
+const BuildingView = lazy(() => import("./BuildingView").then((m) => ({ default: m.BuildingView })));
+const BuildingPage = lazy(() => import("./BuildingPage").then((m) => ({ default: m.BuildingPage })));
 
 const STEPS = ["도면 올리기", "벽·문·창 인식", "확인·고치기·받기"];
 
@@ -25,8 +28,8 @@ const PlanIcon = () => (
 // 주소 #job-<작업 ID> — 결과를 다시 열거나 팀원에게 보낼 수 있게
 const jobFromHash = () => (location.hash.match(/^#job-([0-9a-f]{32})$/) ?? [])[1] ?? null;
 // 메뉴 페이지 — 첫 화면에는 글을 거의 두지 않고, 설명은 메뉴에서 찾아가게 한다
-type Page = "home" | "how" | "about";
-const pageFromHash = (): Page => (location.hash === "#how" ? "how" : location.hash === "#about" ? "about" : "home");
+type Page = "home" | "how" | "about" | "sample";
+const pageFromHash = (): Page => (location.hash === "#how" ? "how" : location.hash === "#about" ? "about" : location.hash === "#sample" ? "sample" : "home");
 
 export default function App() {
   return (
@@ -39,6 +42,7 @@ export default function App() {
 function Shell() {
   const [jobId, setJobId] = useState<string | null>(jobFromHash);
   const [page, setPage] = useState<Page>(pageFromHash);
+  const [building, setBuilding] = useState<Building | null>(buildingFromHash);
   const { job, error, busy, track } = useJob(jobId);
   const [uploading, setUploading] = useState(false);
   const [uploadErr, setUploadErr] = useState<string>();
@@ -47,6 +51,7 @@ function Shell() {
     const onHash = () => {
       setJobId(jobFromHash());
       setPage(pageFromHash());
+      setBuilding(buildingFromHash());
       window.scrollTo({ top: 0 });
     };
     window.addEventListener("hashchange", onHash);
@@ -90,7 +95,19 @@ function Shell() {
 
   // ─── 지금 보여줄 화면 ───
   let content;
-  if (!jobId && page === "how") {
+  if (!jobId && building) {
+    content = (
+      <Suspense fallback={null}>
+        <BuildingPage building={building} onChange={(b) => { history.replaceState(null, "", buildingHash(b)); setBuilding(b); }} />
+      </Suspense>
+    );
+  } else if (!jobId && page === "sample") {
+    content = (
+      <Suspense fallback={null}>
+        <BuildingPage sample={SAMPLE_FLOORS} />
+      </Suspense>
+    );
+  } else if (!jobId && page === "how") {
     content = <HowPage />;
   } else if (!jobId && page === "about") {
     content = <AboutPage />;
@@ -102,7 +119,14 @@ function Shell() {
         action={<Button onClick={restart}>도면 올리기</Button>} />
     );
   } else if (job && job.result_revision !== null) {
-    content = <Workspace key={job.id} job={job} busy={busy} track={track} onRestart={restart} />;
+    content = (
+      <Workspace key={job.id} job={job} busy={busy} track={track} onRestart={restart}
+        onBuilding={() => {
+          // 이 도면을 1층으로 하는 건물 — 위층은 건물 화면에서 추가
+          const b: Building = { use: "apartment", floors: [{ jobId: job.id, name: "1F", heightMm: job.plan ? defaultFloorHeight(job.plan) : 2900, stairs: [] }] };
+          location.hash = buildingHash(b);
+        }} />
+    );
   } else if (job?.status === "failed") {
     content = (
       <div className="pt-8">
@@ -133,7 +157,8 @@ function Shell() {
       <SiteHeader
         brand={<a href="#" onClick={(e) => { e.preventDefault(); restart(); }} className="tracking-title">Auto-BIM</a>}
         items={[
-          { label: "변환하기", href: "#", current: !jobId && page === "home" },
+          { label: "변환하기", href: "#", current: !jobId && !building && page === "home" },
+          { label: "샘플 건물", href: "#sample", current: !jobId && page === "sample" },
           { label: "사용법", href: "#how", current: !jobId && page === "how" },
           { label: "소개", href: "#about", current: !jobId && page === "about" },
         ]}
@@ -141,7 +166,7 @@ function Shell() {
         navAlign="center"
       />
       {/* 첫 화면은 무대가 화면 끝까지(container 밖), 나머지는 본문 폭 */}
-      <main className={cx("flex-1", jobId || page !== "home" ? "container-page pb-24" : "")}>{content}</main>
+      <main className={cx("flex-1", jobId || building || page !== "home" ? "container-page pb-24" : "")}>{content}</main>
       <footer className="border-t border-line">
         <div className="container-page flex flex-wrap justify-between gap-2 py-6 text-label text-ink-3">
           <span>로그인 없이 써요. 결과는 작업 주소를 아는 사람만 열 수 있어요.</span>
@@ -187,10 +212,30 @@ function UploadStage({ busy, error, onFile, onSample }: { busy: boolean; error?:
   return (
     <section aria-label="평면도 올리기" className="h-stage relative overflow-hidden">
       <h1 className="sr-only">Auto-BIM — 평면도를 올리면 벽·문·창이 나뉜 3D로</h1>
-      {/* 3D는 화면 끝까지, 글·버튼은 본문 폭(container) 안에 맞춘다(HeroModel 안에서) */}
+      {/* 3D는 화면 끝까지(층이 세워지고 펼쳐진다), 글·버튼은 본문 폭에 맞춘다 */}
       <Suspense fallback={null}>
-        <HeroModel className="absolute inset-0" />
+        <BuildingView floors={SAMPLE_FLOORS} className="absolute inset-0" compactLabels fit={1.3} shiftY={0.08} />
       </Suspense>
+      <div className="pointer-events-none absolute inset-0">
+        <div className="container-page h-full">
+          <div className="relative h-full">
+            <div className="absolute top-6 left-0 hidden w-60 lg:block">
+              <p className="font-display text-display-sm leading-none tracking-display">샘플 주택</p>
+              <SpecList
+                dense
+                className="mt-4 border-ink"
+                items={[
+                  { label: "층", value: "3", unit: "개" },
+                  { label: "크기", value: "16 × 11", unit: "m" },
+                  { label: "층고", value: "2.9", unit: "m" },
+                  { label: "벽·문·창·계단", value: "따로" },
+                ]}
+              />
+              <a href="#sample" className="pointer-events-auto mt-3 inline-block text-label text-ink-3 underline-offset-4 hover:text-ink hover:underline">샘플 건물 들여다보기 →</a>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* 아래 가운데: 짧은 이름표 + 하는 일 하나 */}
       <div className="absolute bottom-8 left-1/2 flex w-full max-w-sm -translate-x-1/2 flex-col items-center gap-3 px-4 text-center">

@@ -34,7 +34,11 @@ Auto-BIM 프론트를 처음 읽는 사람(나 포함)을 위한 설명. 위에�
 | `PlanView.tsx` | 평면(SVG). 중심선 + 두께 → 사각형, 문·창은 벽을 잘라 표시 | `wallPoly` |
 | `Viewer3D.tsx` | 3D(three.js). glb 불러오기, 벽·문·창 누르기, 시점·단면 | `pick`, `paint` |
 | `plan.ts` | Plan 계산 도우미(벽 길이·방향, 문 위치, 범위)와 화면에 쓰는 말 | `openingCenter` |
-| `HeroModel.tsx` | 첫 화면 샘플 모형 | 맨 위 움직임 규칙 |
+| `building.ts` | 건물 = 층 여러 개(작업 ID·층고·계단·용도). 주소 `#b=`에 담고 꺼내기, 계단 치수 계산 | `encodeBuilding` |
+| `BuildingView.tsx` | 건물 3D 엔진: Plan → 벽(문·창 구멍)·바닥·계단, 세우기 애니메이션, 층 확대, 보이기, 위험 스캔·설명 | 맨 위 주석, `frame` 함수 |
+| `BuildingPage.tsx` | 건물 화면: 용도, 위험 목록, 층 목록(층고·순서·위층 올리기), 계단 그리기 창 | `StairEditor` |
+| `rules.ts` | 위험 검토 규칙 — 용도별 기준 수치, 법규/통상 구분, "왜 위험한지" 문장 | `STAIR_STD`, `review` |
+| `sampleBuilding.ts` | 샘플 3층(첫 화면·`#sample`) — 2층에 일부러 문제를 넣어 둠 | |
 | `site-theme.css` | 이 사이트만의 색·글꼴(디자인 플레이북 위에 덮어씀). **도면 색 약속**도 여기 | `--color-door` 등 |
 
 ## 3. 꼭 알아야 할 설계 다섯 가지
