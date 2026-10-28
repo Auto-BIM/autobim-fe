@@ -65,7 +65,8 @@ npm run dev                                              # http://localhost:5173
 
 ## 백엔드 팀에 전할 것
 
-- **Plan에 공간(실) 추가 제안 — AI Hub 데이터로 인식할 수 있는 것** (계획서 4.3: AI Hub 건축 도면 데이터로 성능 측정·파인튜닝)
+- **(후속 제안, 지금 범위 밖) Plan에 공간(실) 추가 — AI Hub 데이터에 있는 것**
+  - ⚠ 팀 결정 D-07(autobim-be `docs/project/DECISIONS.md`, 10월): 모델은 **4클래스(배경·벽·문·창)**, 인식 v1에서 계단은 제외. 그래서 이 항목은 시연 뒤(또는 P2) 이야기다. 지금은 계단을 사용자가 그리는 게 기본 경로
   - AI Hub 건축 도면 데이터에는 벽·문·창 말고도 **공간 12종**(거실·침실·주방·현관·발코니·화장실·실외기룸·드레스룸·다목적공간·엘리베이터홀·**계단실**·엘리베이터)이 세그멘테이션으로 들어 있다. 계단 한 단 한 단이 아니라 "계단실" 영역이다
   - 제안 모양(프론트 `api.ts`의 `Space`): `spaces: [{ id: "r1", type: "stair", polygon: [{x,y}…](mm), confidence }]` — `type` 키는 위 12종을 영어로(living, bedroom, kitchen, entrance, balcony, bathroom, outdoor_unit, dressroom, multipurpose, elevator_hall, stair, elevator)
   - 프론트는 이미 받을 준비가 돼 있다: 있으면 3D·평면에 실 이름을 붙이고, **계단실에서 계단 후보를 자동으로 만들어** 사용자에게 단 수·방향만 확인받는다. 없으면 지금처럼 사용자가 계단을 그린다
