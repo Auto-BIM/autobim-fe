@@ -1,7 +1,7 @@
 // 샘플 3층 건물 — 첫 화면과 "샘플 건물 보기"에 쓴다. 서버 없이 보이도록 Plan 모양으로 직접 적어 둔다.
 // 원본: 사용자가 준 autobim-hero / autobim-defect 애니메이션의 평면 데이터(팀 자체 제작).
 // 2층에는 일부러 문제를 넣었다(얇은 벽, 가파른 계단) — 위험 검토 시연용.
-import type { Opening, Plan, Wall } from "./api";
+import type { Opening, Plan, Space, SpaceType, Wall } from "./api";
 import type { FloorModel } from "./building";
 
 type Op = [center: number, width: number, type: "w" | "d"];
@@ -11,7 +11,9 @@ const Wm = 16;
 const Dm = 11;
 const WALL_H = 2700;
 
-function toPlan(name: string, ext: W[], int: W[]): Plan {
+type R = [type: SpaceType, x0: number, z0: number, x1: number, z1: number];
+
+function toPlan(name: string, ext: W[], int: W[], rooms: R[] = []): Plan {
   const walls: Wall[] = [];
   const openings: Opening[] = [];
   let wi = 0;
@@ -40,6 +42,11 @@ function toPlan(name: string, ext: W[], int: W[]): Plan {
     source: { type: "image", filename: `${name}.png`, width_px: null, height_px: null },
     scale: { source: "user", estimated: false, mm_per_px: null },
     walls, openings, review_items: [],
+    // 실(공간) — AI Hub 공간 12종 이름으로. 백엔드가 아직 주지 않는 칸이라 샘플에서 화면을 미리 보여 준다
+    spaces: rooms.map(([type, x0, z0, x1, z1], i): Space => ({
+      id: `r${i + 1}`, type, confidence: 1,
+      polygon: [[x0, z0], [x1, z0], [x1, z1], [x0, z1]].map(([x, z]) => ({ x: x * 1000, y: -z * 1000 })),
+    })),
   };
 }
 
@@ -48,18 +55,21 @@ const F1 = toPlan(
   [[0, 0, Wm, 0, [[3, 1.6, "w"], [8, 1.2, "d"], [12.5, 2.4, "w"]]], [Wm, 0, Wm, Dm, [[3, 1.4, "w"]]],
    [Wm, Dm, 0, Dm, [[5, 2.4, "w"], [9, 1.4, "w"]]], [0, Dm, 0, 0, [[5.5, 1.6, "w"]]]],
   [[6, 0, 6, Dm, [[7, 0.9, "d"]]], [6, 6, Wm, 6, [[3, 0.9, "d"], [7.5, 0.9, "d"]]], [11, 6, 11, Dm, []], [0, 4, 6, 4, [[3, 0.9, "d"]]]],
+  [["entrance", 0, 0, 6, 4], ["living", 0, 4, 6, Dm], ["kitchen", 6, 0, Wm, 6], ["bedroom", 6, 6, 11, Dm], ["stair", 11, 6, Wm, Dm]],
 );
 const F2 = toPlan(
   "2F",
   [[0, 0, Wm, 0, [[2.5, 1.6, "w"], [8, 1.6, "w"], [13.5, 1.6, "w"]]], [Wm, 0, Wm, Dm, [[3, 1.4, "w"]]],
    [Wm, Dm, 0, Dm, [[3, 1.6, "w"], [8, 1.6, "w"]]], [0, Dm, 0, 0, [[3, 1.4, "w"], [8, 1.4, "w"]]]],
   [[5, 0, 5, Dm, [[8, 0.9, "d"]]], [5, 5.5, Wm, 5.5, [[2, 0.9, "d"], [7, 0.9, "d"]]], [10.5, 0, 10.5, 5.5, []], [12, 5.5, 12, Dm, [[2.5, 0.9, "d"]], 0.06]],
+  [["bedroom", 0, 0, 5, Dm], ["bedroom", 5, 0, 10.5, 5.5], ["bedroom", 10.5, 0, Wm, 5.5], ["multipurpose", 5, 5.5, 12, Dm], ["stair", 12, 5.5, Wm, Dm]],
 );
 const F3 = toPlan(
   "3F",
   [[0, 0, Wm, 0, [[4, 3, "w"], [12, 3, "w"]]], [Wm, 0, Wm, Dm, [[5.5, 2.4, "w"]]],
    [Wm, Dm, 0, Dm, [[4, 3, "w"], [12, 3, "w"]]], [0, Dm, 0, 0, [[5.5, 2, "w"]]]],
   [[8, 3, 8, Dm, [[3, 0.9, "d"]]], [0, 7, 8, 7, [[4, 0.9, "d"]]]],
+  [["multipurpose", 0, 0, 8, 7], ["bedroom", 0, 7, 8, Dm], ["living", 8, 0, Wm, Dm]],
 );
 
 const FH = WALL_H + 200;

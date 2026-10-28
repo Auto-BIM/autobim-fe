@@ -7,7 +7,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Badge, Button, Select, SpecList, Tabs, TextField, cx } from "@design";
 import { createJob, getJob, ApiError, errorText, ACCEPT, MAX_UPLOAD_MB, fileUrl, downloadName, type Job } from "./api";
 import {
-  USE_LABEL, SLAB_MM, buildingHash, defaultFloorHeight, nextStairId, stairDims, stairRiseTread,
+  USE_LABEL, SLAB_MM, buildingHash, effectiveStairs, defaultFloorHeight, nextStairId, stairDims, stairRiseTread,
   type Building, type FloorModel, type FloorRef, type Stair, type UseKey,
 } from "./building";
 import { LEVEL_LABEL, STAIR_STD, review, type Finding } from "./rules";
@@ -27,14 +27,16 @@ export function BuildingPage({ sample, building, onChange }: Props) {
   const refs: FloorRef[] = sampleState?.floors ?? building?.floors ?? [];
   const floors: FloorModel[] = useMemo(
     () =>
-      sampleState
+      (sampleState
         ? sampleState.floors
         : refs.flatMap((f, i) => {
             const j = jobs[f.jobId];
             return j?.plan ? [{ ...f, plan: j.plan, index: i }] : [];
-          }),
+          })
+      // 사용자가 그린 계단이 없으면 인식된 계단실에서 만든 후보를 쓴다(확인 필요)
+      ).map((f) => ({ ...f, stairs: effectiveStairs(f, STAIR_STD[use].riser) })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [sampleState, building, jobs],
+    [sampleState, building, jobs, use],
   );
   const ready = floors.length === refs.length && floors.length > 0;
 
@@ -44,7 +46,7 @@ export function BuildingPage({ sample, building, onChange }: Props) {
   };
   const setFloor = (i: number, patch: Partial<FloorRef>) => update({ floors: refs.map((f, k) => (k === i ? { ...f, ...patch } : f)) });
 
-  const [layers, setLayers] = useState<Record<Layer, boolean>>({ wall: true, door: true, window: true, floor: true, stair: true });
+  const [layers, setLayers] = useState<Record<Layer, boolean>>({ wall: true, door: true, window: true, floor: true, stair: true, space: true });
   const [focus, setFocus] = useState<number | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [scanToken, setScanToken] = useState(0);
@@ -171,7 +173,7 @@ export function BuildingPage({ sample, building, onChange }: Props) {
             <h2 id="floors-title" className="text-body font-semibold">층</h2>
             <ul className="mt-2 space-y-3">
               {refs.map((f, i) => (
-                <FloorRow key={`${f.jobId}-${i}`} f={f} i={i} n={refs.length} job={sampleState ? null : jobs[f.jobId]} sample={!!sampleState}
+                <FloorRow key={`${f.jobId}-${i}`} f={f} autoStairs={floors[i]?.stairs.filter((x) => "auto" in x && x.auto).length ?? 0} i={i} n={refs.length} job={sampleState ? null : jobs[f.jobId]} sample={!!sampleState}
                   onPatch={(p) => setFloor(i, p)}
                   onMove={(d) => { const a = [...refs]; [a[i], a[i + d]] = [a[i + d], a[i]]; update({ floors: a.map((x, k) => ({ ...x, name: `${k + 1}F` })) }); }}
                   onRemove={() => update({ floors: refs.filter((_, k) => k !== i).map((x, k) => ({ ...x, name: `${k + 1}F` })) })}
@@ -190,7 +192,7 @@ export function BuildingPage({ sample, building, onChange }: Props) {
           risky={new Set(findings.filter((x) => x.floor === drawFloor).map((x) => x.elementId))}
           selected={stairSel}
           setSelected={setStairSel}
-          onChange={(stairs) => setFloor(drawFloor, { stairs })}
+          onChange={(stairs) => setFloor(drawFloor, { stairs: stairs.map(({ auto: _auto, ...st }: Stair & { auto?: boolean }) => st) })}
           onClose={() => setDrawFloor(null)}
           use={use}
           byKey={byKey}
@@ -211,8 +213,8 @@ function FindingText({ f }: { f: Finding; floors: FloorModel[] }) {
   );
 }
 
-function FloorRow({ f, i, n, job, sample, onPatch, onMove, onRemove, onDrawStair }: {
-  f: FloorRef; i: number; n: number; job: Job | null | undefined; sample: boolean;
+function FloorRow({ f, autoStairs, i, n, job, sample, onPatch, onMove, onRemove, onDrawStair }: {
+  f: FloorRef; autoStairs: number; i: number; n: number; job: Job | null | undefined; sample: boolean;
   onPatch: (p: Partial<FloorRef>) => void; onMove: (d: -1 | 1) => void; onRemove: () => void; onDrawStair: () => void;
 }) {
   const [h, setH] = useState(String(f.heightMm / 1000));
@@ -233,11 +235,14 @@ function FloorRow({ f, i, n, job, sample, onPatch, onMove, onRemove, onDrawStair
         </div>
       </div>
       {status ? <p className="mt-1 text-label text-ink-3">{status}</p> : null}
+      {autoStairs && !f.stairs.length ? (
+        <p className="mt-1 flex items-baseline gap-1.5 text-label text-ink-2"><span aria-hidden className="size-2 shrink-0 rounded-full bg-(--color-review)" />인식된 계단실에서 계단 {autoStairs}개를 만들었어요 — 단 수·오르는 방향을 확인해 주세요</p>
+      ) : null}
       <div className="mt-2 grid grid-cols-2 items-end gap-3">
         <TextField label="층고" inputMode="decimal" value={h} onChange={(e) => setH(e.target.value)}
           onBlur={() => { const v = Number(h); if (v > 1.5 && v < 20) onPatch({ heightMm: Math.round(v * 1000) }); else setH(String(f.heightMm / 1000)); }}
           trailing={<span className="text-label text-ink-3">m</span>} hint={`바닥판 ${SLAB_MM}mm 포함`} />
-        <Button variant="secondary" size="sm" onClick={onDrawStair}>계단 {f.stairs.length ? `${f.stairs.length}개 · 고치기` : "그리기"}</Button>
+        <Button variant="secondary" size="sm" onClick={onDrawStair}>계단 {f.stairs.length ? `${f.stairs.length}개 · 고치기` : autoStairs ? `${autoStairs}개 확인하기` : "그리기"}</Button>
       </div>
       <div className="mt-2 flex flex-wrap gap-x-4 text-label">
         {!sample ? <a href={`#job-${f.jobId}`} className="text-ink-3 underline-offset-4 hover:text-ink hover:underline">이 층 벽·문·창 고치기</a> : null}

@@ -65,6 +65,13 @@ npm run dev                                              # http://localhost:5173
 
 ## 백엔드 팀에 전할 것
 
+- **Plan에 공간(실) 추가 제안 — AI Hub 데이터로 인식할 수 있는 것** (계획서 4.3: AI Hub 건축 도면 데이터로 성능 측정·파인튜닝)
+  - AI Hub 건축 도면 데이터에는 벽·문·창 말고도 **공간 12종**(거실·침실·주방·현관·발코니·화장실·실외기룸·드레스룸·다목적공간·엘리베이터홀·**계단실**·엘리베이터)이 세그멘테이션으로 들어 있다. 계단 한 단 한 단이 아니라 "계단실" 영역이다
+  - 제안 모양(프론트 `api.ts`의 `Space`): `spaces: [{ id: "r1", type: "stair", polygon: [{x,y}…](mm), confidence }]` — `type` 키는 위 12종을 영어로(living, bedroom, kitchen, entrance, balcony, bathroom, outdoor_unit, dressroom, multipurpose, elevator_hall, stair, elevator)
+  - 프론트는 이미 받을 준비가 돼 있다: 있으면 3D·평면에 실 이름을 붙이고, **계단실에서 계단 후보를 자동으로 만들어** 사용자에게 단 수·방향만 확인받는다. 없으면 지금처럼 사용자가 계단을 그린다
+  - 계약 변경이라 백엔드 계약 PR로(`app/schemas/plan.py`, docs/api.md, openapi.json). 신뢰도가 낮은 공간은 review_items(`element_kind`에 "space" 추가 필요)
+- **층**: 지금은 도면 한 장 = 한 층이라 프론트가 층을 쌓는다(층마다 작업 하나). 여러 층을 한 작업으로 다룰지는 팀 결정
+
 - **CORS**: 배포한 프론트 주소(Vercel)를 허용 출처로 (이슈 #7)
 - **업로드 크기 제한**: 정해지면 알려 주기 → `frontend/src/api.ts`의 `MAX_UPLOAD_MB`를 같은 값으로 (이슈 #4)
 - **glb 법선**: 지금 glb에 법선(normal)이 없어서 프론트에서 계산한다. 넣어 주면 더 정확한 음영

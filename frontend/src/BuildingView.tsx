@@ -12,13 +12,13 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { Opening, Wall } from "./api";
-import { SLAB_MM, stairDims, type FloorModel } from "./building";
+import { SLAB_MM, SPACE_LABEL, polygonArea, stairDims, type FloorModel } from "./building";
 import { LEVEL_LABEL, type Finding } from "./rules";
 import { KIND_LABEL, OPENING_LABEL, wallLength } from "./plan";
 
-export type Layer = "wall" | "door" | "window" | "floor" | "stair";
-export const LAYER_LABEL: Record<Layer, string> = { wall: "벽", door: "문", window: "창", floor: "바닥", stair: "계단" };
-export const ALL_LAYERS: Layer[] = ["wall", "door", "window", "floor", "stair"];
+export type Layer = "wall" | "door" | "window" | "floor" | "stair" | "space";
+export const LAYER_LABEL: Record<Layer, string> = { wall: "벽", door: "문", window: "창", floor: "바닥", stair: "계단", space: "실 이름" };
+export const ALL_LAYERS: Layer[] = ["wall", "door", "window", "floor", "stair", "space"];
 
 type Props = {
   floors: FloorModel[];
@@ -137,6 +137,7 @@ export function BuildingView({
     const totalH = base[base.length - 1] + FH[FH.length - 1];
 
     const tagged: THREE.Mesh[] = []; // 누를 수 있는 메시
+    const spaceTags: { key: string; floor: number; text: string; strong: boolean }[] = []; // 실 이름표 (들여다보는 층에서만)
     const groupsByKey = new Map<string, { meshes: THREE.Mesh[]; base: THREE.Color[]; tag: Tag; anchor: THREE.Vector3; floor: number }>();
 
     type FloorRec = {
@@ -160,7 +161,7 @@ export function BuildingView({
       root.add(g);
       const rec: FloorRec = {
         g, slab: null as unknown as THREE.Mesh, wallGroups: [], lineGeo: new THREE.BufferGeometry(), lineMat: new THREE.LineBasicMaterial(),
-        count: 0, hover: 0, layerGroups: { wall: [], door: [], window: [], floor: [], stair: [] }, mats: [], fade: 1,
+        count: 0, hover: 0, layerGroups: { wall: [], door: [], window: [], floor: [], stair: [], space: [] }, mats: [], fade: 1,
         edge: new THREE.LineBasicMaterial({ color: COL.edge, transparent: true, opacity: 0.28 }),
       };
       const edgeM = rec.edge;
@@ -184,6 +185,27 @@ export function BuildingView({
       rec.layerGroups.floor.push(slab);
       register(slab, { key: `${fi}:floor`, kind: "floor", floor: fi, name: `${F.name} 바닥`, dims: `${(b - a).toFixed(1)} × ${(d - c).toFixed(1)} m · 층고 ${(F.heightMm / 1000).toFixed(2)} m` }, rec);
       groupsByKey.get(`${fi}:floor`)!.anchor.set((a + b) / 2, 0, (c + d) / 2);
+
+      // 공간(실) — 인식 결과에 spaces가 있으면 바닥 위에 얇게 칠하고 이름을 붙인다(AI Hub 공간 12종)
+      (F.plan.spaces ?? []).forEach((sp) => {
+        if (sp.polygon.length < 3) return;
+        const shape = new THREE.Shape(sp.polygon.map((q) => new THREE.Vector2(q.x / 1000, q.y / 1000)));
+        const geo = new THREE.ShapeGeometry(shape);
+        const strong = sp.type === "stair" || sp.type === "elevator";
+        const mat = new THREE.MeshStandardMaterial({ color: strong ? COL.edge : COL.slab, roughness: 1, transparent: true, opacity: strong ? 0.22 : 0.5, depthWrite: false, side: THREE.DoubleSide });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.rotation.x = -Math.PI / 2; // (x, y) → (x, 0, −y)
+        mesh.position.y = 0.006;
+        mesh.renderOrder = 1;
+        g.add(mesh);
+        rec.layerGroups.space.push(mesh);
+        const area = polygonArea(sp.polygon) / 1e6;
+        register(mesh, { key: `${fi}:${sp.id}`, kind: "space", floor: fi, name: `${F.name} · ${SPACE_LABEL[sp.type]} ${sp.id}`, dims: `면적 ${area.toFixed(1)} ㎡${sp.confidence != null ? ` · 인식 ${Math.round(sp.confidence * 100)}%` : ""}` }, rec);
+        const cx = sp.polygon.reduce((a, q) => a + q.x, 0) / sp.polygon.length / 1000;
+        const cz = -sp.polygon.reduce((a, q) => a + q.y, 0) / sp.polygon.length / 1000;
+        groupsByKey.get(`${fi}:${sp.id}`)!.anchor.set(cx, 0.05, cz);
+        spaceTags.push({ key: `${fi}:${sp.id}`, floor: fi, text: SPACE_LABEL[sp.type], strong });
+      });
 
       // 벽(문·창 구멍 포함) — 벽 하나 = 묶음 하나, 벽 방향으로 돌린다
       const byWall = new Map<string, Opening[]>();
@@ -330,6 +352,7 @@ export function BuildingView({
       b.querySelector("button")!.addEventListener("click", () => cb.current.onFocus?.(focusIdx === i ? null : i));
       return b;
     });
+    const spaceEls = spaceTags.map((t) => mk(`pointer-events-none absolute top-0 left-0 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap px-1.5 text-label opacity-0 ${t.strong ? "bg-ink font-semibold text-bg" : "bg-bg/80 text-ink-2"}`, esc(t.text)));
     const tip = mk("pointer-events-none absolute top-0 left-0 z-10 max-w-72 border border-line bg-surface px-3 py-2 text-left opacity-0 shadow-raised");
     const chip = mk("pointer-events-none absolute top-5 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-ink px-3.5 py-1.5 text-label whitespace-nowrap text-bg opacity-0 transition-opacity");
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -339,7 +362,7 @@ export function BuildingView({
     // ── 상태 ──
     let t = reduce || !intro ? T.end : 0, dir = 1, hold = 0, clock = 0, last = performance.now();
     let introDone = t >= T.end;
-    let layerOn: Record<Layer, boolean> = { wall: true, door: true, window: true, floor: true, stair: true, ...(init.current.layers ?? {}) };
+    let layerOn: Record<Layer, boolean> = { wall: true, door: true, window: true, floor: true, stair: true, space: true, ...(init.current.layers ?? {}) };
     let found = new Map<string, Finding[]>();
     let scanT = -1; // 0..1 스캔 진행, -1 = 안 함
     let flagged = new Map<string, number>(); // key → 표시 시작 시각(clock)
@@ -562,10 +585,11 @@ export function BuildingView({
         R.g.position.y = explodedY(i, exp) + (i === 0 ? 0 : (1 - s) * 1.6) + R.hover;
         // 들여다보는 층 말고는 흐리게
         // 위층은 거의 지우고(시야를 가림), 아래층은 흐리게
-        const want = focusIdx === null || focusIdx === i ? 1 : i > focusIdx ? 0.03 : 0.12;
+        const want = focusIdx === null || focusIdx === i ? 1 : i > focusIdx ? 0 : 0.12;
         R.fade += (want - R.fade) * 0.12;
         R.mats.forEach((m) => { const mm = m as THREE.MeshStandardMaterial; if (mm.opacity !== undefined) mm.opacity = (mm.userData.baseOpacity ??= mm.opacity) * R.fade; mm.depthWrite = R.fade > 0.6 && (mm.userData.baseOpacity ?? 1) > 0.5; });
         R.lineMat.opacity = lineOp * R.fade;
+        if (R.fade < 0.02) R.g.visible = false; // 다 사라진 위층은 그림자도 안 생기게
         R.edge.opacity = 0.28 * R.fade;
       });
 
@@ -609,6 +633,17 @@ export function BuildingView({
       }
       cv.style.cursor = !introDone ? "default" : hoverKey || (hoverFloor >= 0 && focusIdx === null) ? "pointer" : "grab";
       paint();
+
+      // 실 이름: 들여다보는 층에서만 (전체 보기에선 글이 너무 많다)
+      spaceTags.forEach((t, k) => {
+        const el2 = spaceEls[k];
+        const show = focusIdx === t.floor && layerOn.space && introDone && !camTween;
+        el2.style.opacity = show ? "1" : "0";
+        if (!show) return;
+        const [x, y] = toScreen(worldAnchor(t.key));
+        el2.style.left = `${x}px`;
+        el2.style.top = `${y}px`;
+      });
 
       // 층 이름표: 건물 오른쪽 끝에
       const lo = seg(t, T.expB - 0.5, T.expB + 0.3);

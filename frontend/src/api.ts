@@ -57,6 +57,18 @@ export type Scale = {
   mm_per_px: number | null;
 };
 
+/** 공간(실) — ⚠ 아직 계약에 없음. 프론트가 제안하는 모양(README "백엔드 팀에 전할 것").
+ *  AI Hub 건축 도면 데이터의 "공간" 12종을 그대로 쓴다. 백엔드가 넣어 주면 화면이 자동으로 쓰고, 없으면 무시한다. */
+export type SpaceType =
+  | "living" | "bedroom" | "kitchen" | "entrance" | "balcony" | "bathroom"
+  | "outdoor_unit" | "dressroom" | "multipurpose" | "elevator_hall" | "stair" | "elevator";
+export type Space = {
+  id: string; // r1, r2…
+  type: SpaceType;
+  polygon: Point[]; // 바깥 경계(mm, CAD 축)
+  confidence: number | null;
+};
+
 export type Plan = {
   schema_version: string;
   units: "mm";
@@ -65,6 +77,7 @@ export type Plan = {
   walls: Wall[];
   openings: Opening[];
   review_items: ReviewItem[];
+  spaces?: Space[]; // 제안(계약 밖) — 있으면 실 이름·계단실 자동 계단에 쓴다
 };
 
 export type JobStatus = "queued" | "running" | "succeeded" | "failed";

@@ -7,7 +7,7 @@ import { useMemo, useRef, useState, type KeyboardEvent } from "react";
 import type { Opening, Plan, Wall } from "./api";
 import { elementName, findElement, mm, openingCenter, planBounds, wallDir } from "./plan";
 import { NEW_PREFIX } from "./draft";
-import type { Stair } from "./building";
+import { SPACE_LABEL, type Stair } from "./building";
 
 type Props = {
   plan: Plan; // 고칠 내용이 반영된 미리보기 Plan
@@ -116,6 +116,11 @@ export function PlanView({ plan, removed, review, selected, onSelect, stairs = [
       style={onDrawStair ? { cursor: "crosshair", touchAction: "none" } : undefined}
     >
       <g transform="scale(1,-1)" ref={flip}>
+        {/* 실(공간) — 인식 결과에 있으면 바닥에 옅게 (계단실·엘리베이터는 진하게) */}
+        {(plan.spaces ?? []).map((sp) => (
+          <polygon key={sp.id} points={sp.polygon.map((q) => `${q.x},${q.y}`).join(" ")} pointerEvents="none"
+            fill={sp.type === "stair" || sp.type === "elevator" ? "var(--color-ink)" : "var(--color-surface-2)"} fillOpacity={sp.type === "stair" || sp.type === "elevator" ? 0.08 : 0.6} />
+        ))}
         {plan.walls.map((w) => {
           const gone = removed.has(w.id);
           return (
@@ -165,6 +170,17 @@ export function PlanView({ plan, removed, review, selected, onSelect, stairs = [
           <path d="M0 0 L10 5 L0 10 z" fill="var(--color-ink)" />
         </marker>
       </defs>
+
+      {/* 실 이름 (뒤집지 않은 좌표에 — 글자가 거꾸로 서지 않게) */}
+      {(plan.spaces ?? []).map((sp) => {
+        const cx = sp.polygon.reduce((a, q) => a + q.x, 0) / sp.polygon.length;
+        const cy = sp.polygon.reduce((a, q) => a + q.y, 0) / sp.polygon.length;
+        return (
+          <text key={sp.id} x={cx} y={-cy} textAnchor="middle" dominantBaseline="middle" fontSize={fs * 0.9} fill="var(--color-ink-3)" fontFamily="var(--font-sans)" pointerEvents="none">
+            {SPACE_LABEL[sp.type]}
+          </text>
+        );
+      })}
 
       {/* 전체 치수 (아래: 가로, 왼쪽: 세로) */}
       <g fill="var(--color-ink-3)" stroke="var(--color-ink-3)" fontSize={fs} fontFamily="var(--font-sans)">
