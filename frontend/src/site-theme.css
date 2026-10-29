@@ -27,6 +27,21 @@
   --tracking-display: -0.02em;
 }
 
+/* v0.2.1 (2026-10-30) — editorial 디렉션(data-direction="editorial") 위에 이 사이트에서 이미 정한 값을 지킨다.
+ * 디렉션이 주는 것: 영문 대문자 라벨 글꼴(Inter Tight), 큰 제목·작은 라벨 대비, 무대형 배치 문법.
+ * 디렉션 값보다 이 사이트 결정이 앞서는 것: 바탕·글자 색(위), 2px 모서리(calm), 강조색 먹빛 남색(SITE_REQUEST 결정). */
+[data-preset="calm"] {
+  --radius-control: 2px;
+  --radius-check: 2px;
+  --radius-chip: 2px;
+  --radius-card: 0px;
+  --radius-media: 0px;
+  --radius-dialog: 4px;
+  --color-accent: #2f4a6b;      /* 먹빛 남색 — 한 가지 의미: 지금 고른 벽·문·창 */
+  --color-accent-ink: #f8f8f6;
+  --font-label: "Inter Tight Variable", "Inter Tight", "Pretendard Variable", sans-serif;
+}
+
 /* 제목은 보통 굵기로 — 가는 명조가 이 사이트의 느낌. (부품·페이지의 font-semibold보다 우선하도록 레이어 밖에 둔다) */
 [data-preset="calm"] .font-display {
   font-weight: 400;

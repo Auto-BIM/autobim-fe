@@ -13,37 +13,44 @@ import { useId, type ComponentPropsWithoutRef, type ReactNode } from "react";
 import { cx } from "./cx";
 import { IconCheck, IconChevronRight } from "./icons";
 
+/**
+ * size="sm" (v0.2.1): 도구 줄(StageBar)·필터 줄 안에서 — 16px 상자, 작은 글자, 줄 안에 여러 개가 나란히.
+ *   폼(가입·동의)은 기본 크기. sm은 description을 쓰지 않는다(한 줄 도구).
+ */
 export function Checkbox({
   label,
   description,
+  size = "md",
   className,
   id: idProp,
   ...rest
-}: Omit<ComponentPropsWithoutRef<"input">, "type"> & { label: ReactNode; description?: ReactNode }) {
+}: Omit<ComponentPropsWithoutRef<"input">, "type" | "size"> & { label: ReactNode; description?: ReactNode; size?: "md" | "sm" }) {
   const auto = useId();
   const id = idProp ?? auto;
+  const sm = size === "sm";
   return (
-    <div className={cx("flex items-start gap-3", className)}>
-      <span className="relative mt-0.5 inline-grid size-5 shrink-0 place-items-center">
+    <div className={cx("flex", sm ? "items-center gap-2" : "items-start gap-3", className)}>
+      <span className={cx("relative inline-grid shrink-0 place-items-center", sm ? "size-4" : "mt-0.5 size-5")}>
         <input
           id={id}
           type="checkbox"
           className={cx(
-            "peer size-5 appearance-none rounded-check border-[1.5px] border-line-strong bg-surface",
+            "peer appearance-none rounded-check border-[1.5px] border-line-strong bg-surface",
+            sm ? "size-4" : "size-5",
             "transition-colors duration-150 checked:border-primary checked:bg-primary",
             "hover:border-ink-2 disabled:opacity-50",
           )}
           {...rest}
         />
         <IconCheck
-          size={14}
+          size={sm ? 12 : 14}
           strokeWidth={2.5}
           className="pointer-events-none absolute text-primary-ink opacity-0 transition-opacity duration-150 peer-checked:opacity-100"
         />
       </span>
-      <label htmlFor={id} className="min-w-0 flex-1 cursor-pointer select-none">
-        <span className="block text-body text-ink">{label}</span>
-        {description ? <span className="mt-0.5 block text-label text-ink-3">{description}</span> : null}
+      <label htmlFor={id} className={cx("min-w-0 cursor-pointer select-none", !sm && "flex-1")}>
+        <span className={cx("block", sm ? "text-body-sm text-ink-2" : "text-body text-ink")}>{label}</span>
+        {description && !sm ? <span className="mt-0.5 block text-label text-ink-3">{description}</span> : null}
       </label>
     </div>
   );

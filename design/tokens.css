@@ -1,11 +1,15 @@
 /* ==========================================================================
-   Design Playbook v0 — tokens.css
+   Design Playbook v0.2 — tokens.css
    --------------------------------------------------------------------------
    사용법: app/globals.css 맨 위에서
      @import "tailwindcss";
      @import "../design/tokens.css";
    <html>에 프리셋과 모드를 함께 붙인다 (같은 요소에 둘 다).
      <html data-preset="calm|friendly" data-mode="light|dark">
+   v0.2: 보여주는 사이트는 아트 디렉션을 하나 더 붙인다 (directions.md).
+     <html data-preset="calm" data-direction="house" data-mode="light">
+     디렉션은 프리셋 위에 덮어쓰는 값 묶음이다 (글꼴 짝·색·모서리·선).
+     어두운 섹션 하나만 필요하면 그 섹션에 data-mode="dark"를 붙인다.
 
    원칙
    - 모든 값은 "역할" 이름으로만 쓴다. 날것의 색(#hex, red-500, black/40)과
@@ -20,6 +24,10 @@
 @custom-variant calm (&:where([data-preset="calm"], [data-preset="calm"] *));
 @custom-variant friendly (&:where([data-preset="friendly"], [data-preset="friendly"] *));
 @custom-variant dark (&:where([data-mode="dark"], [data-mode="dark"] *));
+@custom-variant house (&:where([data-direction="house"], [data-direction="house"] *));
+@custom-variant editorial (&:where([data-direction="editorial"], [data-direction="editorial"] *));
+@custom-variant object (&:where([data-direction="object"], [data-direction="object"] *));
+@custom-variant showcase (&:where([data-direction], [data-direction] *));
 /* hover는 따로 정의하지 않는다: Tailwind 4의 hover:는 이미 @media (hover: hover) 안에서만 동작해
    터치 기기의 "두 번 탭" 문제가 없다. (괄호 한 줄 형식으로 다시 정의하면 CSS가 깨지니 주의) */
 
@@ -63,10 +71,14 @@
   --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont,
     "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
   --font-display: var(--font-sans);
+  --font-wordmark: var(--font-display); /* 가게·브랜드 이름 (디렉션이 정한다) */
+  --font-label: var(--font-sans);       /* 영문 대문자 라벨 (디렉션이 정한다) */
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   /* 글자 크기 — 12 미만 금지. 각 단계에 줄 간격이 붙어 있다 */
   --text-*: initial;
+  --text-micro: 0.6875rem;      /* 11 — v0.2: 영문 대문자 라벨 전용 (자간 0.14em 이상). 한글에 쓰지 않는다 */
+  --text-micro--line-height: 1.4;
   --text-caption: 0.75rem;      /* 12 — 그림 설명, 법적 문구 */
   --text-caption--line-height: 1.5;
   --text-label: 0.8125rem;      /* 13 — 라벨, 배지, 메타 */
@@ -89,11 +101,15 @@
   --text-display--line-height: 1.15;
   --text-display-lg: clamp(2.75rem, 1.6rem + 5vw, 5rem);     /* 44→80 */
   --text-display-lg--line-height: 1.08;
+  --text-display-xl: clamp(2.75rem, 1.2rem + 5.6vw, 6.5rem);   /* 44→104 — v0.2: 쇼케이스 디렉션 첫 화면 한 줄 */
+  --text-display-xl--line-height: 1.02;
 
   --tracking-display: -0.025em; /* 큰 한글 제목은 살짝 좁게 */
   --tracking-title: -0.015em;
   --tracking-normal: 0em;
   --tracking-label: 0.08em;     /* 작은 대문자 라벨 (calm) */
+  --tracking-micro: 0.16em;     /* v0.2: 11px 영문 대문자 라벨 — 작을수록 넓게 */
+  --tracking-wordmark: 0.04em;  /* v0.2: 세리프 워드마크 */
 
   --leading-tight: 1.15;
   --leading-snug: 1.35;
@@ -122,11 +138,17 @@
   --animate-rise-in: rise-in 240ms var(--ease-standard) both;
   --animate-sheet-in: sheet-in 280ms var(--ease-standard) both;
   --animate-shimmer: shimmer 1.4s linear infinite;
+  /* v0.2 쇼케이스 움직임 — 디렉션이 있는 사이트에서만, 섹션당 1회. 움직임 줄이기면 꺼진다 */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-reveal: reveal 900ms var(--ease-out-expo) both;
+  --animate-lift: lift 700ms var(--ease-out-expo) both;
 
   @keyframes fade-in { from { opacity: 0 } to { opacity: 1 } }
   @keyframes rise-in { from { opacity: 0; transform: translateY(8px) scale(0.98) } to { opacity: 1; transform: none } }
   @keyframes sheet-in { from { transform: translateX(100%) } to { transform: none } }
   @keyframes shimmer { from { background-position: 200% 0 } to { background-position: -200% 0 } }
+  @keyframes reveal { from { clip-path: inset(100% 0 0 0); transform: scale(1.04) } to { clip-path: inset(0 0 0 0); transform: none } }
+  @keyframes lift { from { opacity: 0; transform: translateY(24px) } to { opacity: 1; transform: none } }
 }
 
 /* ---- 프리셋 값 ----------------------------------------------------------
@@ -162,7 +184,9 @@
   --color-warning: #8a5d00;
 }
 
-[data-preset="friendly"][data-mode="dark"] {
+/* v0.2: 밝은 페이지 안의 어두운 섹션(data-mode="dark"만 붙인 요소)에도 같은 값 */
+[data-preset="friendly"][data-mode="dark"],
+[data-preset="friendly"] [data-mode="dark"] {
   --color-bg: #14161a;
   --color-surface: #1c1f24;
   --color-surface-2: #262a31;
@@ -218,7 +242,9 @@
   --shadow-overlay: 0 24px 64px -24px rgb(30 28 24 / 0.38);
 }
 
-[data-preset="calm"][data-mode="dark"] {
+/* v0.2: 밝은 페이지 안의 어두운 섹션(data-mode="dark"만 붙인 요소)에도 같은 값 */
+[data-preset="calm"][data-mode="dark"],
+[data-preset="calm"] [data-mode="dark"] {
   --color-bg: #12110f;
   --color-surface: #1b1a17;
   --color-surface-2: #2a2824;
@@ -239,6 +265,132 @@
   --color-warning: #d9b061;
   --shadow-raised: 0 0 0 1px var(--color-line), 0 16px 40px -12px rgb(0 0 0 / 0.6);
   --shadow-overlay: 0 0 0 1px var(--color-line), 0 32px 80px -24px rgb(0 0 0 / 0.7);
+}
+
+/* ---- v0.2 아트 디렉션 -------------------------------------------------
+   프리셋 위에 덮어쓴다. 고르는 법·배치 문법·시그니처 자리는 directions.md.
+   색은 이 플레이북에서 새로 정했다 (레퍼런스 사이트의 색을 뽑지 않음).
+   ------------------------------------------------------------------------ */
+
+/* house — 하우스 브랜드형: 따뜻한 상아색 면, 세리프 워드마크, 넓은 자간의 대문자 라벨, 선과 여백만으로 나눔 */
+[data-direction="house"] {
+  --color-bg: #f1ebe1;          /* 상아 (calm보다 조금 더 붉은 기) */
+  --color-surface: #f8f4ec;
+  --color-surface-2: #e8e0d2;
+  --color-scrim: rgb(22 17 13 / 0.5);
+  --color-line: #d9cebd;
+  --color-line-strong: #8a7d6d;
+  --color-ink: #211b16;
+  --color-ink-2: #574c42;
+  --color-ink-3: #6a5e52;
+  --color-accent: #34432f;      /* 짙은 병초록 — 한 가지 의미: "이번 계절" 표시. 테라코타 계열 금지(DESIGN.md 11-22) */
+  --color-accent-ink: #f8f4ec;
+  --color-primary: #211b16;     /* 주 버튼은 진한 먹색 */
+  --color-primary-ink: #f8f4ec;
+  --color-primary-hover: #3a312a;
+  --color-focus: #211b16;
+  --color-danger: #9e2f26;
+  --color-success: #3d6635;
+  --color-warning: #7a5812;
+
+  --font-display: "Noto Serif KR", "Nanum Myeongjo", serif;                 /* 한글 제목 */
+  --font-wordmark: "Cormorant Garamond", "Noto Serif KR", serif;            /* 영문 워드마크·큰 숫자 */
+  --font-label: "Inter Tight Variable", "Inter Tight", "Pretendard Variable", sans-serif; /* 영문 대문자 라벨 */
+
+  --radius-control: 0px;
+  --radius-check: 0px;
+  --radius-chip: 999px;         /* 작은 토글만 알약 */
+  --radius-card: 0px;
+  --radius-media: 0px;
+  --radius-dialog: 0px;
+  --shadow-card: 0 0 0 0 transparent;
+  --shadow-raised: 0 16px 40px -20px rgb(33 27 22 / 0.35);
+  --shadow-overlay: 0 32px 80px -24px rgb(33 27 22 / 0.42);
+}
+[data-direction="house"][data-mode="dark"],
+[data-direction="house"] [data-mode="dark"] {
+  --color-bg: #16110d;          /* 촛불 아래 테이블 — 순흑 아님 */
+  --color-surface: #1f1914;
+  --color-surface-2: #2c241d;
+  --color-scrim: rgb(0 0 0 / 0.6);
+  --color-line: #3a3028;
+  --color-line-strong: #7d7062;
+  --color-ink: #efe7da;
+  --color-ink-2: #c2b6a6;
+  --color-ink-3: #a09484;
+  --color-accent: #aebc9b;
+  --color-accent-ink: #16110d;
+  --color-primary: #efe7da;
+  --color-primary-ink: #16110d;
+  --color-primary-hover: #d9cfc0;
+  --color-focus: #efe7da;
+  --color-accent-hover: color-mix(in oklab, var(--color-accent) 86%, var(--color-ink));
+  --color-accent-soft: color-mix(in oklab, var(--color-accent) 14%, var(--color-surface));
+  --color-danger: #e2867c;
+  --color-success: #9cc08f;
+  --color-warning: #d8b36a;
+  /* 바탕색은 칠하지 않는다 — 어두운 섹션은 직접 bg-bg text-ink를 붙인다 (투명 헤더가 어두운 값만 빌려 쓸 수 있게) */
+}
+
+/* editorial — 에디토리얼 크레딧형: 밝은 무채색, 큰 세리프와 아주 작은 라벨의 대비, 가는 선의 스펙 목록 */
+[data-direction="editorial"] {
+  --color-bg: #ededeb;
+  --color-surface: #f6f6f4;
+  --color-surface-2: #e1e1de;
+  --color-scrim: rgb(16 16 16 / 0.5);
+  --color-line: #d2d2ce;
+  --color-line-strong: #7e7e79;
+  --color-ink: #141414;
+  --color-ink-2: #464644;
+  --color-ink-3: #5d5d5a;
+  --color-accent: #283d63;      /* 먹빛 청색 — 한 가지 의미: 지금 상영·진행 중 */
+  --color-accent-ink: #f6f6f4;
+  --color-primary: #141414;
+  --color-primary-ink: #f6f6f4;
+  --color-primary-hover: #2e2e2c;
+  --color-focus: #141414;
+
+  --font-display: "Instrument Serif", "Noto Serif KR", serif;
+  --font-wordmark: "Instrument Serif", "Noto Serif KR", serif;
+  --font-label: "Inter Tight Variable", "Inter Tight", "Pretendard Variable", sans-serif;
+
+  --radius-control: 0px;
+  --radius-check: 0px;
+  --radius-chip: 999px;
+  --radius-card: 0px;
+  --radius-media: 0px;
+  --radius-dialog: 0px;
+  --shadow-card: 0 0 0 0 transparent;
+}
+
+/* object — 오브젝트 쇼케이스형: 주인공 오브젝트 하나, 가장자리에 떠 있는 둥근 컨트롤, 차가운 옅은 면 */
+[data-direction="object"] {
+  --color-bg: #e6eaed;
+  --color-surface: #f4f6f8;
+  --color-surface-2: #d9dfe4;
+  --color-scrim: rgb(16 20 24 / 0.45);
+  --color-line: #cdd4da;
+  --color-line-strong: #78838d;
+  --color-ink: #14181c;
+  --color-ink-2: #444d56;
+  --color-ink-3: #57616b;
+  --color-accent: #1f4249;      /* 짙은 청록 — 한 가지 의미: 핵심 행동(완성·제출) */
+  --color-accent-ink: #f4f6f8;
+  --color-primary: var(--color-accent);
+  --color-primary-ink: var(--color-accent-ink);
+  --color-focus: #14181c;
+
+  --font-display: "Inter Tight Variable", "Pretendard Variable", sans-serif;
+  --font-wordmark: "Inter Tight Variable", "Pretendard Variable", sans-serif;
+  --font-label: "Inter Tight Variable", "Pretendard Variable", sans-serif;
+
+  --radius-control: 999px;
+  --radius-check: 6px;
+  --radius-chip: 999px;
+  --radius-card: 24px;
+  --radius-media: 20px;
+  --radius-dialog: 24px;
+  --shadow-raised: 0 10px 30px -12px rgb(20 24 28 / 0.28), 0 1px 2px rgb(20 24 28 / 0.08);
 }
 
 /* ---- 기본 바탕 ---------------------------------------------------------- */
@@ -333,6 +485,35 @@
   font-weight: 500;
   color: var(--color-ink-2);
 }
+/* v0.2 영문 대문자 라벨 — 11px, 넓은 자간. 한글 라벨은 eyebrow(13px)를 쓴다 */
+@utility micro-label {
+  font-family: var(--font-label);
+  font-size: var(--text-micro);
+  line-height: var(--text-micro--line-height);
+  letter-spacing: var(--tracking-micro);
+  text-transform: uppercase;
+  font-weight: 500;
+}
+/* v0.2 세리프 워드마크 */
+@utility wordmark {
+  font-family: var(--font-wordmark);
+  letter-spacing: var(--tracking-wordmark);
+  font-weight: 500;
+}
+/* v0.2 숫자 정렬 (가격·시간·별점) */
+@utility numerals {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+/* v0.2 쇼케이스 넓은 폭 (풀블리드 안쪽 글자 줄) */
+@utility container-wide {
+  width: 100%;
+  max-width: 1440px;
+  margin-inline: auto;
+  padding-inline: 20px;
+  @media (width >= 48rem) { padding-inline: 32px; }
+  @media (width >= 80rem) { padding-inline: 56px; }
+}
+
 /* 긴 글 본문 서식 — 글 읽기 패턴 전용 */
 @utility prose-reading {
   font-size: var(--text-reading);

@@ -28,19 +28,41 @@ Auto-BIM 프론트를 처음 읽는 사람(나 포함)을 위한 설명. 위에�
 | `api.ts` | 서버와 주고받는 **유일한** 곳. 계약 타입, 오류 코드 → 한국어, 호출 함수 | 맨 위 타입들 = 백엔드 `docs/api.md` |
 | `useJob.ts` | 작업 상태 따라가기(폴링). 끝나면 멈추고, 오래 걸리면 덜 자주 묻는다 | `poll` 함수 |
 | `App.tsx` | 화면 고르기: 작업 없음 → 올리기 / 처리 중 → 진행 표시 / 결과 있음 → 작업 화면 | `Shell`의 `content` 정하는 부분 |
-| `Workspace.tsx` | 작업 화면 전체. 3D·평면 탭, 오른쪽 패널(크기, 속성, 확인 필요, 바뀔 내용) | 맨 위 주석의 데이터 흐름 |
+| `Workspace.tsx` | 작업 화면 전체. 무대(3D·평면 전환은 무대 위 왼쪽 위) + 오른쪽 패널(01 실제 크기 · 02 고른 요소 · 03 확인 필요 · 04 바뀔 내용) | 맨 위 주석의 데이터 흐름 |
 | `draft.ts` | **고칠 내용(초안)**. 고치기 동작, 서버로 보낼 형태로 바꾸기, 미리보기 Plan, 사람이 읽는 목록 | `toRequest`, `previewPlan` |
 | `Inspector.tsx` | 고른 벽·문·창의 값 고치기 패널 | `MmField`(숫자 칸) |
 | `PlanView.tsx` | 평면(SVG). 중심선 + 두께 → 사각형, 문·창은 벽을 잘라 표시 | `wallPoly` |
-| `Viewer3D.tsx` | 3D(three.js). glb 불러오기, 벽·문·창 누르기, 시점·단면 | `pick`, `paint` |
+| `Viewer3D.tsx` | 3D(three.js). glb 불러오기, 벽·문·창 누르기, 시점·단면(아래 도구 줄 `StageBar`) | `pick`, `paint` |
 | `plan.ts` | Plan 계산 도우미(벽 길이·방향, 문 위치, 범위)와 화면에 쓰는 말 | `openingCenter` |
 | `building.ts` | 건물 = 층 여러 개(작업 ID·층고·계단·용도). 주소 `#b=`에 담고 꺼내기, 계단 치수 계산 | `encodeBuilding` |
 | `BuildingView.tsx` | 건물 3D 엔진: Plan → 벽(문·창 구멍)·바닥·계단, 세우기 애니메이션, 층 확대, 보이기, 위험 스캔·설명 | 맨 위 주석, `frame` 함수 |
-| `BuildingPage.tsx` | 건물 화면: 용도, 위험 목록, 층 목록(층고·순서·위층 올리기), 계단 그리기 창 | `StairEditor` |
+| `BuildingPage.tsx` | 건물 화면: 용도, 위험 목록, 층 목록(층고·순서·위층 올리기), 계단 그리기 창(`Dialog size="xl"`) | `StairEditor` |
 | `building.ts`의 `effectiveStairs` | 사용자가 그린 계단이 없으면 인식된 "계단실" 공간에서 계단 후보를 만든다(AI Hub 공간 12종 — 백엔드가 `spaces`를 주면 동작) | |
 | `rules.ts` | 위험 검토 규칙 — 용도별 기준 수치, 법규/통상 구분, "왜 위험한지" 문장 | `STAIR_STD`, `review` |
 | `sampleBuilding.ts` | 샘플 3층(첫 화면·`#sample`) — 2층에 일부러 문제를 넣어 둠 | |
-| `site-theme.css` | 이 사이트만의 색·글꼴(디자인 플레이북 위에 덮어씀). **도면 색 약속**도 여기 | `--color-door` 등 |
+| `site-theme.css` | 이 사이트만의 색·글꼴(디자인 플레이북 위에 덮어씀). **도면 색 약속**도 여기. editorial 디렉션 값보다 이 파일이 앞선다(모서리 2px·먹빛 남색) | `--color-door` 등 |
+
+### 화면 틀 — 무대 + 패널 (디자인 플레이북 v0.2.1, patterns C형 도구형 변형)
+
+```
+┌ 제목 줄: 작은 라벨 · 파일 이름(제목 글꼴) ─────────── 다른 형식 · [보조] [주 버튼 1개] 다른 도면 ┐
+├ 무대 (테두리 없음, 바탕색만) ───────────────────┬ 패널 (위 진한 선 1개, 묶음은 가는 선) ┤
+│ [보기 전환 Segmented]                          │ 01 실제 크기                       │
+│                                               │ 02 고른 요소                       │
+│              3D · 평면 (주인공)                 │ 03 확인 필요            1개 남음   │
+│                                               │ 04 바뀔 내용   [적용해서 다시 만들기] │
+│ [아래 도구 줄 StageBar: 시점 · 단면 높이]          │ ▸ 모든 벽·문·창                    │
+├ 색 설명 · 수치 한 줄(SpecList row) ──────────────┘                                    │
+```
+
+| 부품 (`@design`) | 어디에 | 지킬 것 |
+|---|---|---|
+| `Segmented` | 3D·평면 전환, 시점, 층 고르기 | 칸 2~6개. 무대 위에 뜨면 `floating`. ←/→로 고른다 |
+| `StageBar` | 무대 아래 도구 줄(시점·단면, 보이기) | 넓은 화면에선 무대 위에 뜨고, **좁은 화면에선 무대 아래로 내려온다**(375px에서 3D를 덮지 않게). 무대는 `relative` 바깥 틀 안에 [고정 비율 칸] + `StageBar` 형제로 |
+| `PanelSection` | 오른쪽 패널의 번호 묶음 | 상자 대신 위 선. 추정·확인이 필요하면 `tone="review"` |
+| `SpecList layout="row"` | 무대 아래 수치 한 줄 | 4칸 이하, 숫자는 고정폭 |
+| `Checkbox size="sm"` | 도구 줄 안 켜고 끄기(보이기) | 폼(동의 등)은 기본 크기 |
+| `Dialog size="xl"` | 계단 그리기처럼 창 안에서 그리는 도구 | 위에 붙는 창. 창 안에서 끌다가 밖에서 놓아도 닫히지 않는다 |
 
 ## 3. 꼭 알아야 할 설계 다섯 가지
 
@@ -77,7 +99,8 @@ Auto-BIM 프론트를 처음 읽는 사람(나 포함)을 위한 설명. 위에�
 | 확인 필요 이유 문구 | `plan.ts`의 `REASON_LABEL` |
 | 도면 색 바꾸기 | `site-theme.css`의 `--color-wall`·`--color-door`… (2D·3D·범례가 같이 바뀜) |
 | 새 고치기 동작(예: 벽 추가) | `draft.ts`에 상태·동작·`toRequest`·`changeList` → `Inspector`/`PlanView`에 버튼 |
-| 디자인 규칙 확인 | `design/DESIGN.md` — 끝나면 Claude Code에 "design-review 해줘" |
+| 디자인 규칙 확인 | `design/DESIGN.md` — 끝나면 Claude Code에 "design-review 해줘". 캡처·접근성은 `node scripts/shoot.mjs <주소>`, 규칙 검사는 `node scripts/design-lint.mjs frontend/src` |
+| 무대 위에 도구 추가 | 위 왼쪽은 보기 전환 하나(`Segmented floating`), 나머지는 아래 `StageBar` 안에. 무대 위 도구는 두 묶음까지 |
 
 ## 5. 직접 해 보기 (연습 과제)
 

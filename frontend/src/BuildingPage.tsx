@@ -4,7 +4,7 @@
 //   샘플(#sample): 코드에 들어 있는 3층 샘플. 서버 없이 바로 시연.
 //   내 건물(#b=…): 층마다 올린 도면의 작업 ID + 층고·계단·용도. 주소에 다 들어 있어 새로 고쳐도 남는다.
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { Badge, Button, Select, SpecList, Tabs, TextField, cx } from "@design";
+import { Badge, Button, Checkbox, Dialog, PanelSection, Segmented, Select, SpecList, StageBar, TextField } from "@design";
 import { createJob, getJob, ApiError, errorText, ACCEPT, MAX_UPLOAD_MB, fileUrl, downloadName, type Job } from "./api";
 import {
   USE_LABEL, SLAB_MM, buildingHash, effectiveStairs, defaultFloorHeight, nextStairId, stairDims, stairRiseTread,
@@ -65,11 +65,11 @@ export function BuildingPage({ sample, building, onChange }: Props) {
   const selFindings = selected ? findings.filter((f) => f.key === selected) : [];
 
   return (
-    <div className="pt-8">
-      <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4 border-b border-line pb-6">
+    <div className="pt-6">
+      <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4 pb-5">
         <div>
-          <p className="eyebrow mb-2">{sampleState ? "샘플 건물" : "내 건물"} · {refs.length}개 층</p>
-          <h1 className="text-display-sm font-display tracking-display">{sampleState ? "샘플 주택" : "건물 보기"}</h1>
+          <p className="eyebrow mb-2">{sampleState ? "샘플 건물" : "내 건물"} · <span className="tabular-nums">{refs.length}</span>개 층</p>
+          <h1 className="font-display text-display-sm tracking-display">{sampleState ? "샘플 주택" : "건물 보기"}</h1>
         </div>
         <div className="flex flex-wrap items-end gap-3">
           <div className="w-48">
@@ -82,74 +82,74 @@ export function BuildingPage({ sample, building, onChange }: Props) {
           </div>
           <Button onClick={() => setScanToken((n) => n + 1)} disabledReason={!ready ? "층을 불러오는 중이에요" : undefined}>위험 검토</Button>
         </div>
-      </div>
+      </header>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-12">
-        <section className="min-w-0 lg:col-span-8">
-          <div className="relative aspect-4/3 overflow-hidden border border-line bg-bg">
+      <div className="grid gap-8 lg:grid-cols-12">
+        {/* 무대: 테두리 상자 없이. 층 고르기는 왼쪽 위, 보이기는 아래 가장자리 도구 줄(StageBar — 좁은 화면에선 무대 아래로) */}
+        <section aria-label="건물 3D" className="min-w-0 lg:col-span-8">
+          <div className="relative bg-surface-2">
+            <div className="relative aspect-4/3 overflow-hidden">
+              {ready ? (
+                <Suspense fallback={null}>
+                  <BuildingView
+                    floors={stableFloors}
+                    className="absolute inset-0"
+                    compactLabels
+                    shiftY={0.04} /* 넓은 화면에서 아래 도구 줄(StageBar)에 건물 밑동이 닿지 않게 조금 올린다 */
+                    layers={layers}
+                    findings={shownFindings}
+                    scanToken={scanToken}
+                    focus={focus}
+                    onFocus={(i) => { setFocus(i); setSelected(null); }}
+                    selected={selected}
+                    onSelect={setSelected}
+                  />
+                </Suspense>
+              ) : (
+                <p className="grid size-full place-items-center text-body-sm text-ink-3">{refs.length ? "층 도면을 불러오는 중…" : "층을 추가해 주세요"}</p>
+              )}
+              {ready ? (
+                <div className="absolute top-3 left-3 z-10">
+                  <Segmented
+                    label="층"
+                    floating
+                    size="sm"
+                    value={focus === null ? "all" : String(focus)}
+                    onChange={(v) => { setFocus(v === "all" ? null : Number(v)); setSelected(null); }}
+                    options={[{ value: "all", label: "전체" }, ...floors.map((f, i) => ({ value: String(i), label: f.name }))]}
+                  />
+                </div>
+              ) : null}
+            </div>
             {ready ? (
-              <Suspense fallback={null}>
-                <BuildingView
-                  floors={stableFloors}
-                  className="absolute inset-0"
-                  layers={layers}
-                  findings={shownFindings}
-                  scanToken={scanToken}
-                  focus={focus}
-                  onFocus={(i) => { setFocus(i); setSelected(null); }}
-                  selected={selected}
-                  onSelect={setSelected}
-                />
-              </Suspense>
-            ) : (
-              <p className="grid size-full place-items-center text-body-sm text-ink-3">{refs.length ? "층 도면을 불러오는 중…" : "층을 추가해 주세요"}</p>
-            )}
+              // 켜고 끄기 여섯 개 — 알약(Chip)은 다 켜져 있을 때 진한 테두리 여섯 개가 소재보다 무거웠다 → 작은 체크 상자
+              <StageBar label="보이기">
+                {ALL_LAYERS.map((k) => (
+                  <Checkbox key={k} size="sm" label={LAYER_LABEL[k]} checked={layers[k]} onChange={(e) => setLayers({ ...layers, [k]: e.target.checked })} />
+                ))}
+              </StageBar>
+            ) : null}
           </div>
+          <p className="mt-3 text-label text-ink-3">층을 누르면 그 층으로 다가가요 · 벽·문·창·바닥·계단에 커서를 올리면 이름과 치수, 위험이면 이유가 나와요 · Esc로 전체</p>
 
-          {/* 층 고르기 · 보이기 */}
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
-            <div role="radiogroup" aria-label="층" className="flex">
-              {[{ i: null as number | null, t: "전체" }, ...floors.map((f, i) => ({ i, t: f.name }))].map(({ i, t }) => (
-                <button key={t} type="button" role="radio" aria-checked={focus === i} onClick={() => { setFocus(i); setSelected(null); }}
-                  className="-ml-px h-9 border border-line px-3 text-body-sm text-ink-2 first:ml-0 hover:text-ink aria-checked:z-10 aria-checked:border-ink aria-checked:bg-ink aria-checked:text-bg">
-                  {t}
-                </button>
-              ))}
-            </div>
-            <div className="flex flex-wrap gap-x-4 gap-y-2" aria-label="보이기">
-              {ALL_LAYERS.map((k) => (
-                <label key={k} className="flex cursor-pointer items-center gap-1.5 text-body-sm text-ink-2">
-                  <input type="checkbox" checked={layers[k]} onChange={(e) => setLayers({ ...layers, [k]: e.target.checked })} className="size-4 accent-(--color-ink)" />
-                  {LAYER_LABEL[k]}
-                </label>
-              ))}
-            </div>
-          </div>
-          <p className="mt-2 text-label text-ink-3">층을 누르면 그 층으로 다가가요 · 벽·문·창·바닥·계단에 커서를 올리면 이름과 치수, 위험이면 이유가 나와요 · Esc로 전체</p>
-
-          {/* 고른 요소 */}
+          {/* 고른 요소 — 상자 대신 위 선 */}
           {selected && sel ? (
-            <div className="mt-6 border border-line bg-surface px-4 py-3">
-              <p className="text-body-sm font-semibold">{selected.split(":")[1] === "floor" ? `${sel.name} 바닥` : `${sel.name} · ${selected.split(":")[1]}`}</p>
-              {selFindings.length ? selFindings.map((f, i) => <FindingText key={i} f={f} floors={floors} />) : <p className="mt-1 text-body-sm text-ink-3">이 요소에는 걸린 위험이 없어요.</p>}
-            </div>
+            <PanelSection title={selected.split(":")[1] === "floor" ? `${sel.name} 바닥` : `${sel.name} · ${selected.split(":")[1]}`} className="mt-6">
+              {selFindings.length ? <div className="space-y-3">{selFindings.map((f, i) => <FindingText key={i} f={f} floors={floors} />)}</div> : <p className="text-body-sm text-ink-3">이 요소에는 걸린 위험이 없어요.</p>}
+            </PanelSection>
           ) : null}
         </section>
 
-        <aside className="min-w-0 space-y-6 lg:col-span-4">
-          {/* 위험 목록 */}
-          <section aria-labelledby="risk-title">
-            <h2 id="risk-title" className="flex items-baseline justify-between text-body font-semibold">
-              위험 요소 {scanToken ? <span className="text-label font-normal text-ink-3">{findings.length}건 · {USE_LABEL[use]} 기준</span> : null}
-            </h2>
+        <aside aria-label="검토와 층" className="min-w-0 lg:col-span-4">
+          <PanelSection n="01" title="위험 요소" meta={scanToken ? <><span className="tabular-nums">{findings.length}</span>건 · {USE_LABEL[use]} 기준</> : undefined}>
             {!scanToken ? (
-              <p className="mt-2 text-body-sm text-ink-3">건물 용도를 고르고 "위험 검토"를 누르면, 기준에 못 미치는 곳을 빨갛게 표시해요.</p>
+              <p className="text-body-sm text-ink-3">건물 용도를 고르고 "위험 검토"를 누르면, 기준에 못 미치는 곳을 빨갛게 표시해요.</p>
             ) : findings.length ? (
-              <ul className="mt-2 border-t border-line">
+              <ul className="border-t border-line">
                 {findings.map((f, i) => (
                   <li key={i} className="border-b border-line">
                     <button type="button" onClick={() => { setFocus(f.floor); setSelected(f.key); }} aria-pressed={selected === f.key}
-                      className="flex w-full items-baseline gap-3 py-2.5 text-left hover:bg-surface-2 aria-pressed:bg-surface-2">
+                      className="flex w-full items-baseline gap-3 py-2.5 text-left transition-colors duration-150 hover:bg-surface-2 aria-pressed:bg-surface-2">
                       <span aria-hidden className="size-2 shrink-0 rounded-full bg-(--color-risk)" />
                       <span className="min-w-0 flex-1">
                         <span className="block text-body-sm font-medium text-danger">{f.title}</span>
@@ -161,17 +161,15 @@ export function BuildingPage({ sample, building, onChange }: Props) {
                 ))}
               </ul>
             ) : (
-              <p className="mt-2 text-body-sm text-ink-3">기준에 못 미치는 곳을 찾지 못했어요.</p>
+              <p className="text-body-sm text-ink-3">기준에 못 미치는 곳을 찾지 못했어요.</p>
             )}
             <p className="mt-3 text-caption text-ink-3">
               참고용 검토예요. 법률 자문이 아니고, 법령은 바뀔 수 있으니 국가법령정보센터 원문으로 확인해 주세요. 계단 기준({USE_LABEL[use]}): 폭 {STAIR_STD[use].width / 10}cm 이상 · 단높이 {STAIR_STD[use].riser / 10}cm 이하 · 단너비 {STAIR_STD[use].tread / 10}cm 이상.
             </p>
-          </section>
+          </PanelSection>
 
-          {/* 층 목록 */}
-          <section aria-labelledby="floors-title" className="border-t border-ink pt-4">
-            <h2 id="floors-title" className="text-body font-semibold">층</h2>
-            <ul className="mt-2 space-y-3">
+          <PanelSection n="02" title="층" meta={<><span className="tabular-nums">{refs.length}</span>개</>}>
+            <ul className="border-t border-line">
               {refs.map((f, i) => (
                 <FloorRow key={`${f.jobId}-${i}`} f={f} autoStairs={floors[i]?.stairs.filter((x) => "auto" in x && x.auto).length ?? 0} i={i} n={refs.length} job={sampleState ? null : jobs[f.jobId]} sample={!!sampleState}
                   onPatch={(p) => setFloor(i, p)}
@@ -181,30 +179,28 @@ export function BuildingPage({ sample, building, onChange }: Props) {
               ))}
             </ul>
             {!sampleState ? <AddFloor onAdded={(job) => update({ floors: [...refs, { jobId: job.id, name: `${refs.length + 1}F`, heightMm: 2900, stairs: [] }] })} /> : null}
-          </section>
+          </PanelSection>
         </aside>
       </div>
 
-      {/* 계단 그리기 */}
-      {drawFloor !== null && floors[drawFloor] ? (
-        <StairEditor
-          floor={floors[drawFloor]}
-          risky={new Set(findings.filter((x) => x.floor === drawFloor).map((x) => x.elementId))}
-          selected={stairSel}
-          setSelected={setStairSel}
-          onChange={(stairs) => setFloor(drawFloor, { stairs: stairs.map(({ auto: _auto, ...st }: Stair & { auto?: boolean }) => st) })}
-          onClose={() => setDrawFloor(null)}
-          use={use}
-          byKey={byKey}
-        />
-      ) : null}
+      {/* 계단 그리기 — 도구 창(Dialog xl): 포커스 가두기·Esc·닫으면 누른 버튼으로 포커스가 돌아간다. 닫혀 있어도 붙여 둔다(돌아갈 자리를 기억하게) */}
+      <StairEditor
+        floor={drawFloor !== null ? floors[drawFloor] ?? null : null}
+        risky={new Set(findings.filter((x) => x.floor === drawFloor).map((x) => x.elementId))}
+        selected={stairSel}
+        setSelected={setStairSel}
+        onChange={(stairs) => { if (drawFloor !== null) setFloor(drawFloor, { stairs: stairs.map(({ auto: _auto, ...st }: Stair & { auto?: boolean }) => st) }); }}
+        onClose={() => setDrawFloor(null)}
+        use={use}
+        byKey={byKey}
+      />
     </div>
   );
 }
 
 function FindingText({ f }: { f: Finding; floors: FloorModel[] }) {
   return (
-    <div className="mt-2 border-t border-line pt-2">
+    <div className="border-t border-line pt-3 first:border-t-0 first:pt-0">
       <p className="text-body-sm font-semibold text-danger">{f.title} <span className="font-normal text-ink-3">· {LEVEL_LABEL[f.level]}</span></p>
       <p className="text-body-sm">{f.measured} → 기준 {f.standard}</p>
       <p className="mt-1 text-body-sm text-ink-2">{f.why}</p>
@@ -222,9 +218,9 @@ function FloorRow({ f, autoStairs, i, n, job, sample, onPatch, onMove, onRemove,
   const status = sample ? null : !job ? "불러오는 중" : job.status === "failed" && job.result_revision === null ? errorText(job.error?.code ?? "", job.error?.message) : job.result_revision === null ? "인식 중" : null;
   const dxf = job ? fileUrl(job, "dxf") : null;
   return (
-    <li className="border border-line bg-surface px-3 py-3">
+    <li className="border-b border-line py-4">
       <div className="flex items-baseline justify-between gap-2">
-        <p className="text-body font-semibold">{f.name} {f.note ? <span className="text-label font-normal text-ink-3">{f.note}</span> : null}</p>
+        <p className="flex items-baseline gap-2"><span className="font-display text-title tracking-title">{f.name}</span>{f.note ? <span className="text-label text-ink-3">{f.note}</span> : null}</p>
         <div className="flex gap-1">
           {!sample ? (
             <>
@@ -276,24 +272,25 @@ function AddFloor({ onAdded }: { onAdded: (j: Job) => void }) {
 
 /** 계단 그리기: 평면에서 끌어 사각형 → 단 수·오르는 방향 정하기 */
 function StairEditor({ floor, risky, selected, setSelected, onChange, onClose, use, byKey }: {
-  floor: FloorModel; risky: Set<string>; selected: string | null; setSelected: (s: string | null) => void;
+  floor: FloorModel | null; risky: Set<string>; selected: string | null; setSelected: (s: string | null) => void;
   onChange: (s: Stair[]) => void; onClose: () => void; use: UseKey; byKey: Map<string, Finding>;
 }) {
-  const st = floor.stairs.find((s) => s.id === selected) ?? null;
+  const st = floor?.stairs.find((s) => s.id === selected) ?? null;
   const std = STAIR_STD[use];
-  const set = (p: Partial<Stair>) => st && onChange(floor.stairs.map((s) => (s.id === st.id ? { ...s, ...p } : s)));
-  useEffect(() => {
-    const k = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", k);
-    return () => window.removeEventListener("keydown", k);
-  }, [onClose]);
+  const set = (p: Partial<Stair>) => floor && st && onChange(floor.stairs.map((s) => (s.id === st.id ? { ...s, ...p } : s)));
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="stair-title" className="fixed inset-0 z-40 grid place-items-center bg-scrim p-4">
-      <div className="grid max-h-full w-full max-w-5xl gap-6 overflow-auto bg-bg p-6 shadow-overlay lg:grid-cols-12">
-        <div className="lg:col-span-8">
-          <h2 id="stair-title" className="text-title-sm font-semibold">{floor.name} 계단 그리기</h2>
-          <p className="mt-1 text-body-sm text-ink-2">평면에서 계단 자리를 끌어 사각형으로 그려요. 다음 층 바닥까지 올라가는 곧은 계단으로 만들어요.</p>
-          <div className="mt-4 aspect-4/3 border border-line bg-surface p-2">
+    <Dialog
+      open={floor !== null}
+      onClose={onClose}
+      size="xl"
+      title={floor ? `${floor.name} 계단 그리기` : "계단 그리기"}
+      description="평면에서 계단 자리를 끌어 사각형으로 그려요. 다음 층 바닥까지 올라가는 곧은 계단으로 만들어요."
+      actions={<Button onClick={onClose}>다 했어요</Button>}
+    >
+      {floor ? (
+        <div className="grid gap-6 lg:grid-cols-12">
+          {/* 그리는 칸: 창 바탕(surface)보다 한 단계 어두운 무대 바탕 — 어디까지 그릴 수 있는지 보이게 */}
+          <div className="aspect-4/3 bg-bg p-2 lg:col-span-8">
             <PlanView plan={floor.plan} removed={new Set()} review={new Set()} selected={selected} onSelect={setSelected} stairs={floor.stairs} risky={risky}
               onDrawStair={(r) => {
                 const id = nextStairId(floor);
@@ -303,36 +300,36 @@ function StairEditor({ floor, risky, selected, setSelected, onChange, onClose, u
                 setSelected(id);
               }} />
           </div>
-        </div>
-        <div className="space-y-4 lg:col-span-4">
-          {st ? (
-            <>
-              <p className="text-body font-semibold">계단 {st.id}</p>
-              <SpecList dense items={[
-                { label: "폭", value: (stairDims(st).width / 1000).toFixed(2), unit: "m" },
-                { label: "길이", value: (stairDims(st).run / 1000).toFixed(2), unit: "m" },
-                { label: "단높이", value: Math.round(stairRiseTread(st, floor.heightMm).riser), unit: "mm" },
-                { label: "단너비", value: Math.round(stairRiseTread(st, floor.heightMm).tread), unit: "mm" },
-              ]} />
-              <TextField label="단 수" inputMode="numeric" value={String(st.steps)}
-                onChange={(e) => { const v = Number(e.target.value); if (v >= 2 && v <= 40) set({ steps: Math.round(v) }); }}
-                hint={`${USE_LABEL[use]} 기준 단높이 ${std.riser}mm 이하 → ${Math.ceil(floor.heightMm / std.riser)}단 이상`} />
-              <Select label="오르는 방향" value={st.dir} onChange={(e) => set({ dir: e.target.value as Stair["dir"] })}
-                options={[{ value: "x+", label: "오른쪽으로" }, { value: "x-", label: "왼쪽으로" }, { value: "y+", label: "위쪽으로" }, { value: "y-", label: "아래쪽으로" }]} />
-              {[...byKey.values()].filter((f) => f.floor === floor.index && f.elementId === st.id).map((f, i) => (
-                <p key={i} className="text-body-sm text-danger">{f.title}: {f.measured} → {f.standard}</p>
-              ))}
-              <Button variant="danger" size="sm" onClick={() => { onChange(floor.stairs.filter((s) => s.id !== st.id)); setSelected(null); }}>이 계단 지우기</Button>
-            </>
-          ) : (
-            <p className="text-body-sm text-ink-3">계단을 그리거나 눌러서 고르면 단 수와 방향을 정할 수 있어요.</p>
-          )}
-          <div className={cx("border-t border-line pt-4")}>
-            <Button block onClick={onClose}>다 했어요</Button>
+          <div className="space-y-4 lg:col-span-4">
+            {st ? (
+              <>
+                <h3 className="flex items-baseline gap-2">
+                  <span className="font-display text-title-lg tracking-title">계단</span>{" "}
+                  <span className="text-title tabular-nums text-ink-2">{st.id}</span>
+                </h3>
+                <SpecList dense items={[
+                  { label: "폭", value: (stairDims(st).width / 1000).toFixed(2), unit: "m" },
+                  { label: "길이", value: (stairDims(st).run / 1000).toFixed(2), unit: "m" },
+                  { label: "단높이", value: Math.round(stairRiseTread(st, floor.heightMm).riser), unit: "mm" },
+                  { label: "단너비", value: Math.round(stairRiseTread(st, floor.heightMm).tread), unit: "mm" },
+                ]} />
+                <TextField label="단 수" inputMode="numeric" value={String(st.steps)}
+                  onChange={(e) => { const v = Number(e.target.value); if (v >= 2 && v <= 40) set({ steps: Math.round(v) }); }}
+                  hint={`${USE_LABEL[use]} 기준 단높이 ${std.riser}mm 이하 → ${Math.ceil(floor.heightMm / std.riser)}단 이상`} />
+                <Select label="오르는 방향" value={st.dir} onChange={(e) => set({ dir: e.target.value as Stair["dir"] })}
+                  options={[{ value: "x+", label: "오른쪽으로" }, { value: "x-", label: "왼쪽으로" }, { value: "y+", label: "위쪽으로" }, { value: "y-", label: "아래쪽으로" }]} />
+                {[...byKey.values()].filter((f) => f.floor === floor.index && f.elementId === st.id).map((f, i) => (
+                  <p key={i} className="text-body-sm text-danger">{f.title}: {f.measured} → {f.standard}</p>
+                ))}
+                <Button variant="danger" size="sm" onClick={() => { onChange(floor.stairs.filter((s) => s.id !== st.id)); setSelected(null); }}>이 계단 지우기</Button>
+              </>
+            ) : (
+              <p className="text-body-sm text-ink-3">계단을 그리거나 눌러서 고르면 단 수와 방향을 정할 수 있어요.</p>
+            )}
           </div>
         </div>
-      </div>
-    </div>
+      ) : null}
+    </Dialog>
   );
 }
 

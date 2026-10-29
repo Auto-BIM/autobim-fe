@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 대비 검사 — tokens.css(또는 사이트의 덮어쓴 CSS)를 읽어 4개 조합의 글자/부품 대비를 WCAG 2.2 기준으로 확인한다.
+// 대비 검사 — tokens.css(또는 사이트의 덮어쓴 CSS)를 읽어 프리셋 4개 조합 + 아트 디렉션(v0.2)의 글자/부품 대비를 WCAG 2.2 기준으로 확인한다.
 // 사용: node scripts/check-contrast.mjs [tokens.css 경로] [추가 CSS 경로...]
 //   추가 CSS에 [data-preset] { --color-accent: #... } 처럼 사이트 강조색을 덮어쓴 파일을 넘기면 그것까지 검사한다.
 // 종료 코드 1 = 기준 미달이 하나라도 있음.
@@ -30,9 +30,9 @@ const base = declsOf(themeBody);
 const generic = blocks(/\[data-preset\](?!=)(?![^{]*\[data-mode)/);
 const sel = {
   friendly: blocks(/\[data-preset="friendly"\](?!\[)/),
-  friendlyDark: blocks(/\[data-preset="friendly"\]\[data-mode="dark"\]/),
+  friendlyDark: blocks(/\[data-preset="friendly"\]\[data-mode="dark"\](?:,\s*\[data-preset="friendly"\] \[data-mode="dark"\])?/),
   calm: blocks(/\[data-preset="calm"\](?!\[)/),
-  calmDark: blocks(/\[data-preset="calm"\]\[data-mode="dark"\]/),
+  calmDark: blocks(/\[data-preset="calm"\]\[data-mode="dark"\](?:,\s*\[data-preset="calm"\] \[data-mode="dark"\])?/),
 };
 const combos = {
   "friendly · light": { ...base, ...generic, ...sel.friendly },
@@ -40,6 +40,15 @@ const combos = {
   "calm · light": { ...base, ...generic, ...sel.calm },
   "calm · dark": { ...base, ...generic, ...sel.calm, ...sel.calmDark },
 };
+// v0.2 아트 디렉션: [data-direction="x"] 블록이 있으면 그 위에 덮어쓴 조합도 검사한다
+const directions = [...new Set([...css.matchAll(/\[data-direction="([a-z-]+)"\]/g)].map((m) => m[1]))];
+for (const d of directions) {
+  const light = blocks(new RegExp(String.raw`\[data-direction="${d}"\](?!\[|\s*,|\s+\[)`));
+  if (!Object.keys(light).length) continue;
+  combos[`${d} · light`] = { ...base, ...generic, ...sel.calm, ...light };
+  const dark = blocks(new RegExp(String.raw`\[data-direction="${d}"\] \[data-mode="dark"\]`));
+  if (Object.keys(dark).length) combos[`${d} · dark (섹션)`] = { ...base, ...generic, ...sel.calm, ...light, ...dark };
+}
 
 // --- 색 계산 ---------------------------------------------------------------
 function resolveColor(tokens, name, depth = 0) {

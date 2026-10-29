@@ -17,14 +17,6 @@ const BuildingPage = lazy(() => import("./BuildingPage").then((m) => ({ default:
 
 const STEPS = ["도면 올리기", "벽·문·창 인식", "확인·고치기·받기"];
 
-const PlanIcon = () => (
-  <svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
-    <path d="M6 6h28v28H6z" />
-    <path d="M6 20h12M18 6v9M18 24v10M26 20h8" />
-    <path d="M18 15a5 5 0 0 1 5 5" strokeDasharray="2 2" />
-  </svg>
-);
-
 // 주소 #job-<작업 ID> — 결과를 다시 열거나 팀원에게 보낼 수 있게
 const jobFromHash = () => (location.hash.match(/^#job-([0-9a-f]{32})$/) ?? [])[1] ?? null;
 // 메뉴 페이지 — 첫 화면에는 글을 거의 두지 않고, 설명은 메뉴에서 찾아가게 한다
@@ -140,7 +132,8 @@ function Shell() {
       <div className="pt-8">
         <Stepper steps={STEPS} current={1} className="mb-10" />
         <div className="max-w-lg">
-          <h1 className="text-title-lg font-display tracking-display">{job?.input.filename ?? "도면"}을 읽고 있어요</h1>
+          <p className="eyebrow mb-3">인식 중</p>
+          <h1 className="font-display text-display-sm tracking-display">{job?.input.filename ?? "도면"}을 읽고 있어요</h1>
           <p className="mt-2 text-body-sm text-ink-2">벽·문·창을 찾아 3D와 .dxf를 만들어요. 이 주소를 저장해 두면 나중에 다시 열 수 있어요.</p>
           <ProgressBar
             className="mt-8"
@@ -170,7 +163,11 @@ function Shell() {
       <footer className="border-t border-line">
         <div className="container-page flex flex-wrap justify-between gap-2 py-6 text-label text-ink-3">
           <span>로그인 없이 써요. 결과는 작업 주소를 아는 사람만 열 수 있어요.</span>
-          <span>Auto-BIM · 가천대 AI P-실무프로젝트 2분반 3조</span>
+          <span>
+            Auto-BIM · 가천대 AI P-실무프로젝트 2분반 3조 ·{" "}
+            {/* 함께 배포되는 글꼴(SIL OFL 1.1)·라이브러리(MIT) 라이선스 전문 — 빌드 때 scripts/licenses.mjs가 만든다 */}
+            <a href={`${import.meta.env.BASE_URL}licenses/THIRD_PARTY_LICENSES.txt`} className="underline underline-offset-4 hover:text-ink">글꼴·라이브러리 라이선스</a>
+          </span>
         </div>
       </footer>
     </div>
@@ -219,8 +216,9 @@ function UploadStage({ busy, error, onFile, onSample }: { busy: boolean; error?:
       <div className="pointer-events-none absolute inset-0">
         <div className="container-page h-full">
           <div className="relative h-full">
-            <div className="absolute top-6 left-0 hidden w-60 lg:block">
-              <p className="font-display text-display-sm leading-none tracking-display">샘플 주택</p>
+            <div className="absolute top-8 left-0 hidden w-64 lg:block">
+              <p className="micro-label text-ink-3">Sample · 3 floors</p>
+              <p className="mt-2 font-display text-display leading-none tracking-display">샘플 주택</p>
               <SpecList
                 dense
                 className="mt-4 border-ink"
@@ -233,6 +231,8 @@ function UploadStage({ busy, error, onFile, onSample }: { busy: boolean; error?:
               />
               <a href="#sample" className="pointer-events-auto mt-3 inline-block text-label text-ink-3 underline-offset-4 hover:text-ink hover:underline">샘플 건물 들여다보기 →</a>
             </div>
+            {/* 오른쪽 아래: 조작 안내 한 줄 (patterns C형) — 글·버튼은 본문 폭에 맞춘다 */}
+            <p className="absolute right-0 bottom-8 hidden text-label text-ink-3 lg:block">끌어서 돌리기 · 층을 눌러 들여다보기</p>
           </div>
         </div>
       </div>
@@ -253,7 +253,8 @@ function UploadStage({ busy, error, onFile, onSample }: { busy: boolean; error?:
             if (f) onFile(f);
           }}
         />
-        <Button size="lg" loading={busy} onClick={() => input.current?.click()}>평면도 올리기</Button>
+        {/* 2차 부품 평가: 첫 화면의 주 버튼은 기본 크기 — 모형보다 커 보이지 않게 */}
+        <Button loading={busy} onClick={() => input.current?.click()}>평면도 올리기</Button>
         <p className="text-label text-ink-3">
           이미지·DXF를 끌어다 놓아도 돼요 ·{" "}
           <button type="button" onClick={onSample} className="underline underline-offset-4 hover:text-ink">샘플로 해 보기</button>

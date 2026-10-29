@@ -9,6 +9,9 @@
  * - 위험한 확인은 주 행동을 danger로, 버튼 글자에 결과를 쓴다 ("삭제" ✓ / "확인" ✗).
  * - 모바일(640px 미만)에서는 아래에서 올라오는 시트로 바뀐다.
  * - 바깥(어두운 부분)을 누르면 닫힌다. 입력 중인 폼이면 dismissible={false}.
+ *   v0.2.1: 누르기 시작한 곳도 바깥이어야 닫힌다 — 창 안에서 끌다가 바깥에서 놓으면 닫히지 않게(평면에 그리기 등).
+ * - size="xl"(v0.2.1): 창 안에서 그리거나 고치는 도구 창(평면 + 옆 설정). 짧은 확인에는 쓰지 않는다.
+ *   가운데가 아니라 위에 붙인다 — 그린 뒤 옆 설정이 늘어나면 가운데 창은 위로 밀려 그리는 칸이 움직였다(Auto-BIM 계단 그리기).
  */
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { cx } from "./cx";
@@ -31,10 +34,11 @@ export function Dialog({
   description?: ReactNode;
   children?: ReactNode;
   actions?: ReactNode;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
   dismissible?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const pressedOutside = useRef(false);
   const titleId = useId();
   const descId = useId();
 
@@ -54,8 +58,11 @@ export function Dialog({
       onCancel={(e) => {
         if (!dismissible) e.preventDefault();
       }}
+      onPointerDown={(e) => {
+        pressedOutside.current = e.target === ref.current;
+      }}
       onClick={(e) => {
-        if (dismissible && e.target === ref.current) onClose();
+        if (dismissible && pressedOutside.current && e.target === ref.current) onClose();
       }}
       className={cx(
         "m-auto max-h-[min(88dvh,820px)] w-[calc(100%-32px)] overflow-hidden rounded-dialog bg-surface p-0 text-ink shadow-overlay",
@@ -63,6 +70,7 @@ export function Dialog({
         size === "sm" && "max-w-sm",
         size === "md" && "max-w-lg",
         size === "lg" && "max-w-3xl",
+        size === "xl" && "max-w-5xl sm:mt-16 sm:mb-auto",
         // 모바일: 아래 시트
         "max-sm:mb-0 max-sm:w-full max-sm:max-w-none max-sm:rounded-b-none",
       )}

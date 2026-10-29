@@ -59,7 +59,9 @@ export function PlanView({ plan, removed, review, selected, onSelect, stairs = [
   const toPlan = (e: React.PointerEvent) => {
     const g = flip.current!;
     const pt = new DOMPoint(e.clientX, e.clientY).matrixTransform(g.getScreenCTM()!.inverse());
-    return { x: Math.round(pt.x / 50) * 50, y: Math.round(pt.y / 50) * 50 }; // 5cm 단위로 맞춤
+    // 5cm 단위로 맞추고, 건물 바깥선 안으로 가둔다 — 창 밖까지 끌면 건물보다 큰 계단이 생겼다(2026-10-30 흐름 점검)
+    const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+    return { x: clamp(Math.round(pt.x / 50) * 50, b.minX, b.maxX), y: clamp(Math.round(pt.y / 50) * 50, b.minY, b.maxY) };
   };
   const b = useMemo(() => planBounds(plan), [plan]);
   const pad = Math.max(b.w, b.h) * 0.08;

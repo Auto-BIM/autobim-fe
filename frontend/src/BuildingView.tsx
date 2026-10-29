@@ -8,6 +8,7 @@
 //
 // 좌표: Plan (x, y) mm → 3D (x/1000, 높이, −y/1000) m. 층 바닥 윗면이 y=0, 바닥판은 그 아래 0.2 m.
 // 화면 위 글(층 이름표·설명 상자·검토 상태)은 매 프레임 위치를 바꾸므로 React가 아니라 여기서 직접 만든다.
+// design-lint-disable C8: 3D 엔진 — 색은 site-theme.css의 CSS 변수에서 읽고, 코드의 값은 읽지 못했을 때의 기본값과 빛 색이다
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
@@ -752,5 +753,6 @@ export function BuildingView({
   useEffect(() => { api.current?.setFocus(focus); }, [focus]);
   useEffect(() => { api.current?.setSelected(selected); }, [selected]);
 
-  return <div ref={host} className={className ?? "relative size-full"} role="img" aria-label="건물 3D — 층을 눌러 들여다보고, 벽·문·창·바닥·계단에 올리면 설명이 나와요" />;
+  // role="group": 안에 층 이름 버튼(누를 수 있는 것)이 있다 — role="img"면 그 버튼이 화면낭독기에서 사라진다(axe nested-interactive)
+  return <div ref={host} className={className ?? "relative size-full"} role="group" aria-label="건물 3D — 층을 눌러 들여다보고, 벽·문·창·바닥·계단에 올리면 설명이 나와요" />;
 }

@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { cx } from "@design";
+import { Segmented, StageBar } from "@design";
 import type { Plan } from "./api";
 import { openingCenter, wallDir } from "./plan";
 
@@ -258,36 +258,30 @@ export function Viewer3D({ url, plan, selected, review, onSelect, onError, overl
   }, [cut]);
 
   const views: [View, string][] = [["iso", "비스듬히"], ["top", "위에서"], ["front", "정면"]];
+  // v0.2.1: 무대 아래 가장자리의 도구 줄(patterns C형 도구형, StageBar) — 넓은 화면에선 3D 위에 떠 있고, 좁은 화면에선 3D 아래로 내려온다
   return (
-    <div className="flex h-full flex-col">
-      <div ref={host} className="relative min-h-0 flex-1 [&>canvas]:block [&>canvas]:size-full" role="img" aria-label="3D 모델 — 끌어서 돌리고, 휠로 확대하고, 벽·문·창을 눌러 골라요">
-        {!ready ? <span className="absolute inset-0 grid place-items-center text-body-sm text-ink-3">3D 모델을 불러오는 중…</span> : null}
+    <div className="relative">
+      <div className="relative aspect-4/3">
+        <div ref={host} className="absolute inset-0 [&>canvas]:block [&>canvas]:size-full" role="img" aria-label="3D 모델 — 끌어서 돌리고, 휠로 확대하고, 벽·문·창을 눌러 골라요">
+          {!ready ? <span className="absolute inset-0 grid place-items-center text-body-sm text-ink-3">3D 모델을 불러오는 중…</span> : null}
+        </div>
         {overlay ? (
-          <span className="absolute top-3 left-3 border border-line bg-surface px-3 py-1.5 text-label text-ink-2" role="status">{overlay}</span>
+          // 좁은 화면: 왼쪽 위 보기 전환 아래 한 줄 / 넓은 화면: 오른쪽 위
+          <span className="absolute top-14 right-3 left-3 border border-line bg-bg/90 px-3 py-1.5 text-label text-ink-2 backdrop-blur-md md:top-3 md:left-auto md:max-w-sm" role="status">{overlay}</span>
         ) : null}
       </div>
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-line bg-surface px-4 py-3">
-        <div role="radiogroup" aria-label="시점" className="flex">
-          {views.map(([v, label]) => (
-            <button
-              key={v}
-              type="button"
-              role="radio"
-              aria-checked={view === v}
-              onClick={() => {
-                setView(v);
-                api.current?.setView(v);
-              }}
-              className={cx(
-                "-ml-px h-9 border border-line px-3 text-body-sm text-ink-2 first:ml-0 hover:text-ink",
-                "aria-checked:z-10 aria-checked:border-ink aria-checked:bg-ink aria-checked:font-medium aria-checked:text-bg",
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <label className="flex min-w-56 flex-1 items-center gap-3 text-body-sm text-ink-2">
+      <StageBar label="3D 도구" showLabel={false}>
+        <Segmented
+          label="시점"
+          size="sm"
+          value={view}
+          onChange={(v) => {
+            setView(v);
+            api.current?.setView(v);
+          }}
+          options={views.map(([v, label]) => ({ value: v, label }))}
+        />
+        <label className="flex min-w-48 flex-1 items-center gap-3 text-label text-ink-2">
           <span className="shrink-0">단면 높이</span>
           <input
             type="range"
@@ -301,7 +295,7 @@ export function Viewer3D({ url, plan, selected, review, onSelect, onError, overl
           />
           <span className="w-14 shrink-0 text-right tabular-nums text-ink">{cut.toFixed(2)} m</span>
         </label>
-      </div>
+      </StageBar>
     </div>
   );
 }
