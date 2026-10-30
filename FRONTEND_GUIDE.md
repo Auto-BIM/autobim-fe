@@ -39,6 +39,8 @@ Auto-BIM 프론트를 처음 읽는 사람(나 포함)을 위한 설명. 위에�
 | `BuildingPage.tsx` | 건물 화면: 용도, 위험 목록, 층 목록(층고·순서·위층 올리기), 계단 그리기 창(`Dialog size="xl"`) | `StairEditor` |
 | `building.ts`의 `effectiveStairs` | 사용자가 그린 계단이 없으면 인식된 "계단실" 공간에서 계단 후보를 만든다(AI Hub 공간 12종 — 백엔드가 `spaces`를 주면 동작) | |
 | `rules.ts` | 위험 검토 규칙 — 용도별 기준 수치, 법규/통상 구분, "왜 위험한지" 문장 | `STAIR_STD`, `review` |
+| `stageFloor.ts` | 3D 무대 공간감: 흐려지는 바닥 격자, 그림자 바닥, 무대 CSS 변수(--stage-*) 읽기 — Viewer3D가 씀 | `makeFadingGrid` |
+| `riskPin.ts` | 위험 번호 모양(3D와 목록이 같이 씀), 정렬(층 → 법규 먼저)·요소별 묶기 — 이 순서가 곧 번호 | `sortFindings`, `groupFindings` |
 | `sampleBuilding.ts` | 샘플 3층(첫 화면·`#sample`) — 2층에 일부러 문제를 넣어 둠 | |
 | `site-theme.css` | 이 사이트만의 색·글꼴(디자인 플레이북 위에 덮어씀). **도면 색 약속**도 여기. editorial 디렉션 값보다 이 파일이 앞선다(모서리 2px·먹빛 남색) | `--color-door` 등 |
 

@@ -207,7 +207,7 @@ function UploadStage({ busy, error, onFile, onSample }: { busy: boolean; error?:
   }, [onFile]);
 
   return (
-    <section aria-label="평면도 올리기" className="h-stage relative overflow-hidden">
+    <section aria-label="평면도 올리기" className="h-stage stage-backdrop relative overflow-hidden">
       <h1 className="sr-only">Auto-BIM — 평면도를 올리면 벽·문·창이 나뉜 3D로</h1>
       {/* 3D는 화면 끝까지(층이 세워지고 펼쳐진다), 글·버튼은 본문 폭에 맞춘다 */}
       <Suspense fallback={null}>

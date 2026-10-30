@@ -1,17 +1,19 @@
 /* 도면3D 사이트 테마 — design/tokens.css의 calm 프리셋 위에 덮어쓴다 (design-site 3단계).
  *
- * 2026-10-28 사용자 요청: 참고 사이트(R19)처럼 바탕을 무채색 밝은 회색으로, 제목 글꼴을 가늘고 좁은 명조 느낌으로.
+ * 2026-10-28 사용자 요청: 참고 사이트(R19)처럼 바탕을 무채색 밝은 회색으로 (→ 2026-10-30 스튜디오 흰색으로 바꿈), 제목 글꼴을 가늘고 좁은 명조 느낌으로.
  * 저작권: 참고 사이트의 글꼴 파일·이름은 쓰지 않는다. 비슷한 "느낌"의 공개 글꼴(SIL OFL)로 대신한다.
  *   - 제목 라틴·숫자: Instrument Serif (OFL) — 좁고 대비 큰 명조
  *   - 제목 한글: Noto Serif KR 400 (OFL) — 굵게 쓰지 않고 보통 굵기로
  *   - 본문·UI: Pretendard 그대로
  * 색은 "밝은 회색 바탕"이라는 흔한 성질만 같고, 값은 우리 대비 기준(check-contrast)으로 새로 정했다.
  */
+/* 2026-10-30 사용자 결정: 회색 바탕 → "가상 공간 같은" 스튜디오 흰색. 순백 대신 아주 약간 따뜻한 흰색,
+ * 깊이는 색이 아니라 3D 무대의 그러데이션·흐려지는 격자·그림자로 준다(아래 .stage-backdrop, stageFloor.ts). */
 [data-preset="calm"] { /* 어두운 모드는 tokens.css의 [calm][dark]가 더 구체적이라 그대로 유지된다 */
-  --color-bg: #efefed;          /* 무채색 밝은 회색 (아주 약간 따뜻하게) — 순백 금지 */
-  --color-surface: #f8f8f6;
-  --color-surface-2: #e4e4e1;
-  --color-line: #d6d6d2;
+  --color-bg: #fafaf9;          /* 스튜디오 흰색 — 순백 금지 */
+  --color-surface: #fefefd;
+  --color-surface-2: #efeeeb;
+  --color-line: #e2e0db;
   --color-line-strong: #868680;
   --color-ink: #161615;
   --color-ink-2: #4c4c49;
@@ -75,4 +77,18 @@
   --color-model-door: #b9a27f;
   --color-model-stair: #cfccc5;
   --color-risk: #d9363e;         /* 위험 표시 (그래픽·제목). 바탕 대비 4.5:1 미만이라 작은 본문 글자에는 --color-danger */
+}
+
+/* 3D 무대 바탕 — "가상 공간에 있는 것 같은" 깊이 (2026-10-30 사용자 요청)
+ * 색 하나로 칠하지 않고: 위가 밝고 바닥 쪽이 조금 어두운 그러데이션 + 멀어질수록 흐려지는 바닥 격자 + 부드러운 그림자.
+ * 3D 쪽(stageFloor.ts·Viewer3D·BuildingView)은 무대를 감싼 요소에서 --stage-* 를 읽는다. */
+[data-preset="calm"] {
+  --stage-top: #fdfdfc;
+  --stage-bottom: #d9d8d3;
+  --stage-grid: #8f8e88;
+  --stage-grid-alpha: 0.24;
+  --stage-shadow: 0.2;
+}
+.stage-backdrop {
+  background: radial-gradient(130% 100% at 50% 28%, var(--stage-top) 0%, var(--stage-top) 38%, var(--stage-bottom) 100%);
 }

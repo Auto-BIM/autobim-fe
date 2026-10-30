@@ -36,6 +36,6 @@ F14. 마감: 2026-12-21 최종 발표. 10~12주차 프론트·배포 착수, 13~
 
 ## 결정 (design-site)
 `preset=calm · direction=editorial · mode=light · accent=먹빛 남색(한 가지 의미: 지금 고른 벽·문·창) · signature=층별로 세우고 펼치기(첫 화면 1회) · 모서리 2px · 패턴: 첫 화면 C형 무대형 / 작업·건물 화면 C형 도구형 변형(3D가 무대, 도구는 가장자리, 고칠 값은 오른쪽 패널 하나)`
-- 사이트 테마(`frontend/src/site-theme.css`): 무채색 밝은 회색 바탕, 제목 Instrument Serif + Noto Serif KR 400, 영문 라벨 Inter Tight(editorial), 도면 색: 외벽 진회색·내벽 연회색·문 초록·창 청록·확인 필요 황토 점선
+- 사이트 테마(`frontend/src/site-theme.css`): 스튜디오 흰색 바탕(2026-10-30 회색에서 바꿈 — 3D 무대는 그러데이션·흐려지는 격자·그림자로 공간감), 제목 Instrument Serif + Noto Serif KR 400, 영문 라벨 Inter Tight(editorial), 도면 색: 외벽 진회색·내벽 연회색·문 초록·창 청록·확인 필요 황토 점선
 - 근거: 세련된·전문적인·깔끔한(미니멀) → calm 3점 / 도구(쓰는 사이트) → light / 정확한·전문적인 + 보여줄 모형 → editorial(directions.md 0장) / 전문적인 → 치수·면적 같은 숫자를 2등 자리에(moods 5단계)
 - 2026-10-30 v0.2.1로 다시 만듦: 작업·건물 화면의 상자(테두리 카드·점선 상자)를 선과 여백으로, 같은 무게 버튼 5개를 주 버튼 1개 + 보조로, 3D를 테두리 없는 무대로. 첫 화면은 사용자 확정(C형) 그대로 두고 주 버튼만 기본 크기로(2차 부품 평가)
