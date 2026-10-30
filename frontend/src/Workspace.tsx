@@ -111,7 +111,7 @@ export function Workspace({ job, busy, track, onRestart, onBuilding }: Props) {
       <div className="grid gap-8 lg:grid-cols-12">
         {/* 왼쪽: 무대(3D · 평면). 테두리 상자 없이 바탕색만, 보기 전환은 무대 위 왼쪽 위 */}
         <section aria-label="보기" className="min-w-0 lg:col-span-8">
-          <div className={cx("relative", tab === "3d" ? "bg-surface-2" : "bg-surface")}>
+          <div className={cx("relative", tab === "3d" ? "stage-backdrop" : "bg-surface")}>
             <div className="absolute top-3 left-3 z-20">
               <Segmented
                 label="보기"

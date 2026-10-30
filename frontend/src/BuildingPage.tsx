@@ -95,7 +95,7 @@ export function BuildingPage({ sample, building, onChange }: Props) {
       <div className="grid gap-8 lg:grid-cols-12">
         {/* 무대: 테두리 상자 없이. 층 고르기는 왼쪽 위, 보이기는 아래 가장자리 도구 줄(StageBar — 좁은 화면에선 무대 아래로) */}
         <section aria-label="건물 3D" className="min-w-0 lg:col-span-8">
-          <div className="relative bg-surface-2">
+          <div className="relative stage-backdrop">
             <div className="relative aspect-4/3 overflow-hidden">
               {ready ? (
                 <Suspense fallback={null}>

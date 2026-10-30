@@ -83,6 +83,7 @@ export function BuildingView({
     renderer.setClearColor(0x000000, 0);
     renderer.domElement.className = "block size-full";
     el.prepend(renderer.domElement);
+    el.classList.add("select-none"); // 끌어서 돌릴 때 위에 뜬 글(이름표·설명)이 선택돼 파랗게 칠해지지 않게
 
     // ── 색 (site-theme.css의 --color-model-* · --color-risk) ──
     const COL = {
@@ -418,10 +419,17 @@ export function BuildingView({
 
     // ── 크기 ──
     let Wd = 1, Hd = 1;
+    let offX = 0; // 설명 단 자리를 비우려고 모형을 오른쪽으로 민 만큼(px)
+    let zoomK = 1; // 설명 단이 들어가게 모형을 줄인 정도(1 = 그대로)
+    let boxesOn = false;
+    const applyOffset = () => {
+      if (shiftY || offX > 0.5) camera.setViewOffset(Wd, Hd, -offX, Hd * shiftY, Wd, Hd); else camera.clearViewOffset();
+      camera.zoom = zoomK;
+      camera.updateProjectionMatrix();
+    };
     const resize = () => {
       Wd = el.clientWidth; Hd = el.clientHeight; renderer.setSize(Wd, Hd, false); camera.aspect = Wd / Math.max(1, Hd);
-      if (shiftY) camera.setViewOffset(Wd, Hd, 0, Hd * shiftY, Wd, Hd); else camera.clearViewOffset();
-      camera.updateProjectionMatrix();
+      applyOffset();
     };
     const ro = new ResizeObserver(resize);
     ro.observe(el);
@@ -509,9 +517,11 @@ export function BuildingView({
 
     // 위험 번호 — 스캔으로 찾은 요소마다 번호 하나(옆 위험 목록의 번호와 같다). 설명 글은 목록과 커서 설명에.
     //   왜: 3D 위에 글 상자 여러 개를 띄우면 좁은 무대(12칸 중 8칸)에서 상자끼리·모형·층 이름표를 덮어 읽기 힘들었다(2026-10-30).
-    let pins: { key: string; floor: number; pin: HTMLButtonElement; line: SVGPolylineElement; dot: SVGCircleElement; ring: SVGCircleElement }[] = [];
+    //   설명 상자는 무대 왼쪽 단에 세로로 늘어놓고 가는 선으로 번호와 잇는다. 모형이 그 단을 침범하면 화면을 옆으로 밀어(view offset)
+    //   돌려도 상자가 모형을 덮지 않는다 — "위험건수가 도면을 가리잖아, 돌려도 가리지 않고 옆으로 퍼지게"(2026-10-30). 좁은 무대(560px 미만)는 번호만.
+    let pins: { key: string; floor: number; pin: HTMLButtonElement; line: SVGPolylineElement; dot: SVGCircleElement; ring: SVGCircleElement; box: HTMLDivElement; lead: SVGPolylineElement }[] = [];
     const buildPins = () => {
-      pins.forEach((c) => { c.pin.remove(); c.line.remove(); c.dot.remove(); c.ring.remove(); });
+      pins.forEach((c) => { c.pin.remove(); c.line.remove(); c.dot.remove(); c.ring.remove(); c.box.remove(); c.lead.remove(); });
       pins = [];
       [...found.entries()].forEach(([key, fs], i) => {
         const pin = document.createElement("button");
@@ -529,8 +539,16 @@ export function BuildingView({
         line.setAttribute("fill", "none"); line.setAttribute("stroke", COL.red); line.setAttribute("stroke-width", "1");
         const dot = document.createElementNS(NS, "circle"); dot.setAttribute("r", "3"); dot.setAttribute("fill", COL.red);
         const ring = document.createElementNS(NS, "circle"); ring.setAttribute("fill", "none"); ring.setAttribute("stroke", COL.red);
-        svg.append(line, ring, dot);
-        pins.push({ key, floor: fs[0].floor, pin, line, dot, ring });
+        const lead = document.createElementNS(NS, "polyline");
+        lead.setAttribute("fill", "none"); lead.setAttribute("stroke", COL.red); lead.setAttribute("stroke-width", "1");
+        svg.append(line, lead, ring, dot);
+        const f0 = fs[0];
+        const box = mk("pointer-events-auto absolute top-0 left-3 w-52 -translate-y-1/2 cursor-pointer border border-line border-l-2 border-l-(--color-risk) bg-surface/95 px-2.5 py-1.5 opacity-0 shadow-raised backdrop-blur-sm",
+          `<span class="flex items-baseline gap-1.5"><b class="text-label font-semibold tabular-nums text-danger">${i + 1}</b><b class="truncate text-body-sm font-semibold text-ink">${esc(f0.title)}</b>${fs.length > 1 ? `<span class="shrink-0 text-label text-ink-3">외 ${fs.length - 1}</span>` : ""}</span><span class="block truncate text-label tabular-nums text-ink-3">${esc(floors[f0.floor]?.name ?? "")} · <span class="text-danger">${esc(f0.measured)}</span> → ${esc(f0.standard)}</span>`);
+        box.setAttribute("aria-hidden", "true"); // 키보드·화면낭독기는 번호 버튼과 옆 목록으로
+        box.style.visibility = "hidden";
+        box.addEventListener("click", () => { cb.current.onFocus?.(f0.floor); cb.current.onSelect?.(key); });
+        pins.push({ key, floor: f0.floor, pin, line, dot, ring, box, lead });
       });
     };
 
@@ -706,6 +724,48 @@ export function BuildingView({
         const rp = (clock * 1.2) % 1;
         c.ring.setAttribute("cx", String(ax)); c.ring.setAttribute("cy", String(ay)); c.ring.setAttribute("r", String(10 + rp * 12));
         c.ring.style.opacity = String(show * (1 - rp) * 0.6);
+      });
+
+      // 설명 상자 — 왼쪽 단(번호 순서가 아니라 번호의 화면 높이 순)에 겹치지 않게 늘어놓는다
+      const COL_R = 12 + 208, TOP = 60, BOT = Hd - 76, GAP = 54;
+      const shown = pins.filter((c) => c.pin.style.visibility === "visible");
+      // 지금 보이는 층들의 화면 범위
+      let bx0 = 1e9, bx1 = -1e9;
+      recs.forEach((R, i) => {
+        if (focusIdx !== null && i > focusIdx) return;
+        for (const yy of [R.g.position.y - SLAB_MM / 1000, R.g.position.y + FH[i]])
+          for (const [x, z] of [[minX, minZ], [maxX, minZ], [minX, maxZ], [maxX, maxZ]]) {
+            tmp.set(x + root.position.x, yy, z + root.position.z);
+            const [sx] = toScreen(tmp);
+            bx0 = Math.min(bx0, sx); bx1 = Math.max(bx1, sx);
+          }
+      });
+      const LABEL_W = 150; // 오른쪽 층 이름표 자리
+      const room = Wd - (COL_R + 24) - LABEL_W - 8;
+      // 자리가 모자라면 모형을 줄이고(최대 55%까지), 왼쪽 단을 비우도록 오른쪽으로 민다 — 돌릴 때마다 다시 맞춘다
+      boxesOn = shown.length > 0 && Wd >= 560;
+      const wantZoom = boxesOn ? Math.min(1, Math.max(0.55, ((room * 0.96) / Math.max(1, bx1 - bx0)) * zoomK)) : 1;
+      const wantOff = boxesOn ? Math.max(0, offX + (COL_R + 24 - bx0)) : 0;
+      const k = Math.min(1, dt * 6);
+      if (Math.abs(wantZoom - zoomK) > 0.002 || Math.abs(wantOff - offX) > 0.5) {
+        zoomK += (wantZoom - zoomK) * k;
+        offX += (wantOff - offX) * k;
+        applyOffset();
+      }
+      const lay = shown.map((c) => ({ c, py: parseFloat(c.pin.style.top), px: parseFloat(c.pin.style.left), y: 0 })).sort((a, b) => a.py - b.py);
+      lay.forEach((it, i) => { it.y = Math.max(TOP, it.py, i ? lay[i - 1].y + GAP : TOP); });
+      for (let i = lay.length - 1; i >= 0; i--) lay[i].y = Math.min(lay[i].y, (i < lay.length - 1 ? lay[i + 1].y - GAP : BOT));
+      pins.forEach((c) => {
+        const it = lay.find((l) => l.c === c);
+        const on = boxesOn && !!it;
+        c.box.style.visibility = on ? "visible" : "hidden";
+        c.box.style.opacity = on ? c.pin.style.opacity : "0";
+        c.lead.style.opacity = on ? String(parseFloat(c.pin.style.opacity) * 0.8) : "0";
+        if (!on || !it) return;
+        c.box.style.top = `${it.y}px`;
+        c.box.classList.toggle("ring-2", selectedKey === c.key);
+        c.box.classList.toggle("ring-ink", selectedKey === c.key);
+        c.lead.setAttribute("points", `${COL_R},${it.y} ${COL_R + 12},${it.y} ${it.px - 12},${it.py}`);
       });
 
       // 검토 상태

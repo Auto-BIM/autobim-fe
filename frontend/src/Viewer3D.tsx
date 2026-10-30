@@ -1,3 +1,4 @@
+// design-lint-disable C8: 3D 엔진 — 색은 site-theme.css의 CSS 변수(--stage-*·--color-*)에서 읽고, 코드의 값은 읽지 못했을 때의 기본값이다
 // 3D 뷰어 — 서버가 만든 .glb를 보여주고, 벽·문·창을 눌러 고를 수 있게 한다.
 //
 // glb 규약(autobim-be docs/api.md "출력 파일"): 벽마다 노드 하나, 노드 이름 = 벽 ID(w1…), m 단위, Y가 위.
@@ -16,6 +17,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { Button, Segmented, StageBar } from "@design";
 import type { Plan } from "./api";
 import { openingCenter, wallDir } from "./plan";
+import { makeFadingGrid, makeShadowFloor, stageVar } from "./stageFloor";
 
 type View = "iso" | "top" | "front";
 type Props = {
@@ -66,7 +68,7 @@ export function Viewer3D({ url, modelKey, plan, selected, review, onSelect, onEr
     setReady(false);
     let renderer: THREE.WebGLRenderer;
     try {
-      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); // 투명 — 무대 바탕(.stage-backdrop)이 비친다
     } catch {
       onError?.("이 브라우저에서는 3D를 그릴 수 없어요. 평면 보기를 써 주세요.");
       return;
@@ -74,10 +76,12 @@ export function Viewer3D({ url, modelKey, plan, selected, review, onSelect, onEr
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.localClippingEnabled = true;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.setClearColor(0x000000, 0);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     el.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    scene.background = css("--color-surface-2");
     const camera = new THREE.PerspectiveCamera(35, 1, 0.05, 500);
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
@@ -86,12 +90,17 @@ export function Viewer3D({ url, modelKey, plan, selected, review, onSelect, onEr
     scene.add(new THREE.HemisphereLight(0xffffff, 0xb9b2a6, 1.6));
     const sun = new THREE.DirectionalLight(0xffffff, 1.3);
     sun.position.set(-6, 12, 8);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.bias = -0.0004;
+    sun.shadow.radius = 4;
     scene.add(sun);
+    scene.add(sun.target);
 
     const clip = new THREE.Plane(new THREE.Vector3(0, -1, 0), maxH + 0.01);
     const colors = {
       wall: css("--color-model-wall"),
-      edge: css("--color-ink-3"),
+      edge: css("--color-model-edge"),
       sel: css("--color-accent"),
       review: css("--color-review"),
       door: css("--color-door"),
@@ -155,7 +164,9 @@ export function Viewer3D({ url, modelKey, plan, selected, review, onSelect, onEr
           const id = m.name || m.parent?.name || "";
           // glb에 법선(빛 계산용 면 방향)이 없으면 벽이 까맣게 보인다 → 직접 계산
           if (!m.geometry.getAttribute("normal")) m.geometry.computeVertexNormals();
-          const mat = new THREE.MeshStandardMaterial({ color: colors.wall.clone(), roughness: 0.9, side: THREE.DoubleSide, clippingPlanes: [clip] });
+          const mat = new THREE.MeshStandardMaterial({ color: colors.wall.clone(), roughness: 0.9, side: THREE.DoubleSide, clippingPlanes: [clip], clipShadows: true });
+          m.castShadow = true;
+          m.receiveShadow = true;
           m.material = mat;
           m.name = id;
           m.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry, 30), new THREE.LineBasicMaterial({ color: colors.edge, transparent: true, opacity: 0.5, clippingPlanes: [clip] })));
@@ -168,10 +179,15 @@ export function Viewer3D({ url, modelKey, plan, selected, review, onSelect, onEr
         const box = new THREE.Box3().setFromObject(gltf.scene);
         size = box.getSize(new THREE.Vector3());
         center = box.getCenter(new THREE.Vector3());
-        const n = Math.ceil(Math.max(size.x, size.z) + 4);
-        const grid = new THREE.GridHelper(n, n, css("--color-line-strong"), css("--color-line"));
-        grid.position.set(center.x, box.min.y - 0.001, center.z);
-        scene.add(grid);
+        // 무대 바닥: 멀어질수록 흐려지는 격자 + 부드러운 그림자 (stageFloor.ts) — 색·세기는 무대 CSS 변수
+        const reach = Math.max(size.x, size.z);
+        scene.add(makeFadingGrid({ center, radius: reach * 1.3 + 4, y: box.min.y - 0.002, color: stageVar(el, "--stage-grid", "#9a9993"), alpha: Number(stageVar(el, "--stage-grid-alpha", "0.35")) }));
+        scene.add(makeShadowFloor({ center, size: reach * 6 + 10, y: box.min.y - 0.001, opacity: Number(stageVar(el, "--stage-shadow", "0.16")) }));
+        sun.position.set(center.x - reach * 0.6, center.y + reach * 1.4, center.z + reach * 0.9);
+        sun.target.position.copy(center);
+        const sc = sun.shadow.camera as THREE.OrthographicCamera;
+        Object.assign(sc, { left: -reach, right: reach, top: reach, bottom: -reach, near: 0.1, far: reach * 5 });
+        sc.updateProjectionMatrix();
         if (lastCamera && lastCamera.key === modelKey) {
           camera.position.copy(lastCamera.pos);
           controls.target.copy(lastCamera.target);
