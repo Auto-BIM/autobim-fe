@@ -7,17 +7,17 @@
  *   - 본문·UI: Pretendard 그대로
  * 색은 "밝은 회색 바탕"이라는 흔한 성질만 같고, 값은 우리 대비 기준(check-contrast)으로 새로 정했다.
  */
-/* 2026-10-30 사용자 결정: 회색 바탕 → "가상 공간 같은" 스튜디오 흰색. 순백 대신 아주 약간 따뜻한 흰색,
- * 깊이는 색이 아니라 3D 무대의 그러데이션·흐려지는 격자·그림자로 준다(아래 .stage-backdrop, stageFloor.ts). */
+/* 2026-10-30 사용자 결정: 회색 바탕 → 스튜디오 흰색 → "누리끼리해서" 맑은 유리(노란 기를 뺀 거의 무채색, 아주 옅은 푸른 기).
+ * 깊이는 색이 아니라 3D 무대의 그러데이션·흐려지는 격자·그림자·유리 반사로 준다(아래 .stage-backdrop, stageFloor.ts). */
 [data-preset="calm"] { /* 어두운 모드는 tokens.css의 [calm][dark]가 더 구체적이라 그대로 유지된다 */
-  --color-bg: #fafaf9;          /* 스튜디오 흰색 — 순백 금지 */
-  --color-surface: #fefefd;
-  --color-surface-2: #efeeeb;
-  --color-line: #e2e0db;
-  --color-line-strong: #868680;
-  --color-ink: #161615;
-  --color-ink-2: #4c4c49;
-  --color-ink-3: #5f5f5b;
+  --color-bg: #f5f7f9;          /* 맑은 유리 — 순백 금지 */
+  --color-surface: #fbfcfd;
+  --color-surface-2: #e9eef2;
+  --color-line: #dce2e7;
+  --color-line-strong: #7d8790;
+  --color-ink: #13171b;
+  --color-ink-2: #454e57;
+  --color-ink-3: #59636d;
   --color-primary: #1b1b1a;
   --color-primary-ink: #f6f6f4;
   --color-primary-hover: #33332f;
@@ -69,10 +69,10 @@
 
 /* 건물 3D 색 (사용자 hero·defect 애니메이션의 색) — BuildingView가 읽는다 */
 [data-preset="calm"] {
-  --color-model-wall: #dddbd6;
-  --color-model-slab: #d2d0ca;
-  --color-model-edge: #4a4945;
-  --color-model-line: #2a2926;
+  --color-model-wall: #e3e6e9;  /* 맑은 유리에 맞춘 차가운 회색 (2026-10-30, 전엔 #dddbd6) */
+  --color-model-slab: #d2d8de;
+  --color-model-edge: #3b424a;
+  --color-model-line: #252b31;
   --color-model-glass: #c9d6dc;
   --color-model-door: #b9a27f;
   --color-model-stair: #cfccc5;
@@ -83,21 +83,44 @@
  * 색 하나로 칠하지 않고: 위가 밝고 바닥 쪽이 조금 어두운 그러데이션 + 멀어질수록 흐려지는 바닥 격자 + 부드러운 그림자.
  * 3D 쪽(stageFloor.ts·Viewer3D·BuildingView)은 무대를 감싼 요소에서 --stage-* 를 읽는다. */
 [data-preset="calm"] {
-  --stage-top: #fdfdfc;
-  --stage-bottom: #e4e3df;
-  --stage-bg: radial-gradient(130% 100% at 50% 30%, var(--stage-top) 0%, #f6f5f2 45%, var(--stage-bottom) 100%);
+  --stage-top: #ffffff;
+  --stage-bottom: #dbe3ea;
+  /* 맑은 유리: 왼쪽 위에서 비스듬히 지나가는 옅은 반사 두 줄 + 가운데 밝은 그러데이션 */
+  --stage-sheen: linear-gradient(118deg, rgb(255 255 255 / 0.75) 0%, rgb(255 255 255 / 0) 26%, rgb(255 255 255 / 0) 60%, rgb(255 255 255 / 0.4) 72%, rgb(255 255 255 / 0) 86%);
+  --stage-bg: var(--stage-sheen), radial-gradient(125% 95% at 50% 28%, var(--stage-top) 0%, #f3f6f9 42%, var(--stage-bottom) 100%);
   /* 2026-10-30 사용자 결정(시안 4개 중 B "디지털 트윈 격자"): 끝없이 이어지다 흐려지는 선 격자 바닥 — 건축 도구다운 가상공간 */
   --stage-grid-style: lines;    /* lines | dots | none */
   --stage-grid-reach: 4;        /* 건물 크기의 몇 배까지 격자를 깔지 (BuildingView) */
-  --stage-grid: #7f7e78;
-  --stage-grid-alpha: 0.38;
+  --stage-grid: #76828e;
+  --stage-grid-alpha: 0.36;
   --stage-shadow: 0.2;
 }
 /* 첫 화면: 격자가 건물 둘레에서만 보이고 왼쪽 제목·표 쪽으로 가기 전에 흐려지게 */
 .h-stage {
   --stage-grid-reach: 1;
   --stage-grid-alpha: 0.3;
+  /* 첫 화면은 무대가 화면 전체라 반사 줄을 넣지 않는다 — 넓게 깔리면 효과가 아니라 얼룩처럼 보인다 */
+  --stage-bg: radial-gradient(125% 95% at 50% 28%, var(--stage-top) 0%, #f3f6f9 42%, var(--stage-bottom) 100%);
 }
 .stage-backdrop {
   background: var(--stage-bg, radial-gradient(130% 100% at 50% 28%, var(--stage-top) 0%, var(--stage-top) 38%, var(--stage-bottom) 100%));
+}
+
+/* 맑은 유리: 무대 위에 뜬 도구(보기 전환·도구 줄)는 반투명 유리판 — 뒤의 3D가 흐리게 비친다.
+ * 부품(Segmented floating · StageBar)이 data-floating으로 자리를 열어 두고, 모양은 이 사이트가 정한다. */
+[data-preset="calm"] {
+  --glass-edge: inset 0 0 0 1px rgb(255 255 255 / 0.7), inset 0 1px 0 rgb(255 255 255 / 1);
+  --glass-fill: rgb(255 255 255 / 0.5);
+  --glass-line: rgb(255 255 255 / 0.85);
+  --glass-shadow: inset 0 1px 0 rgb(255 255 255 / 0.9), 0 10px 30px -14px rgb(30 50 70 / 0.35);
+}
+.stage-backdrop {
+  box-shadow: var(--glass-edge);
+}
+.stage-backdrop [data-floating] {
+  background-color: var(--glass-fill);
+  border-color: var(--glass-line);
+  -webkit-backdrop-filter: blur(16px) saturate(1.5);
+  backdrop-filter: blur(16px) saturate(1.5);
+  box-shadow: var(--glass-shadow);
 }
