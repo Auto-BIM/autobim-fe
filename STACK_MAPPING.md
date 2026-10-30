@@ -7,6 +7,7 @@
 | 열 | 검증 상태 | 기준 버전 · 확인한 날 |
 |---|---|---|
 | Next.js · Vercel | **운영에서 쓴 스택**(STILL THEATER) — 칸마다 다 써 본 것은 아님 | Next.js 16.3 · 2026-10 |
+| FastAPI (Python) | 일부 사용(도면3D, 맨 아래 "FastAPI 메모") | FastAPI 0.162 · 2026-10 |
 | Node · Django · Rails · Spring Boot | 미검증 — 문서 기준 출발점 | 쓰게 되면 여기에 버전과 날짜를 적는다 |
 | 스택 무관 (CDN · DB · 인프라) | 일부 검증(Postgres·Vercel CDN) | 2026-10 |
 
@@ -255,3 +256,53 @@
 - **Rails**: CI 경로 필터
 - **Spring Boot**: CI 경로 필터
 - **스택 무관 (CDN · DB · 인프라)**: 미리보기 배포는 끄거나 별도 DB
+
+## 작은 사이트 · 소재 (v3 — 모두 미검증, 공식 문서로 확인)
+
+### 27. 전부 정적으로 만들기
+
+- **Next.js · Vercel**: 정적 렌더링되는 라우트만 두기(빌드 결과의 라우트 표시로 확인), 완전 정적이면 `next.config`의 `output: 'export'`
+- **Node (Express · NestJS)**: 정적 사이트 생성기(Astro·Eleventy 등)로 따로 만들거나 빌드 때 HTML 저장
+- **Django**: 빌드 때 HTML로 내보내는 도구, 또는 정적 사이트 생성기 분리
+- **Rails**: 정적 사이트 생성기 분리
+- **Spring Boot**: 정적 사이트 생성기 분리
+- **스택 무관 (CDN · DB · 인프라)**: CDN 정적 호스팅, 캐시 수명 길게 + 파일 이름에 해시
+
+### 28. 이미지를 빌드 때 미리 만들기 (종량제 변환 끄기)
+
+- **Next.js · Vercel**: `next/image`는 기본적으로 이미지 최적화를 쓴다(Vercel에서는 종량제 이미지 변환으로 센다) → 작은 사이트는 `images.unoptimized` + 빌드 스크립트(sharp 등)로 크기별 파일 생성. 정적 내보내기(`output: 'export'`)에서는 기본 변환을 쓸 수 없다
+- **Node (Express · NestJS)**: sharp로 빌드 때 생성
+- **Django**: 빌드 스크립트(Pillow) 또는 정적 사이트 생성기의 이미지 기능
+- **Rails**: 빌드 스크립트(image_processing / libvips)
+- **Spring Boot**: 빌드 스크립트
+- **스택 무관 (CDN · DB · 인프라)**: `<img srcset sizes>` + `width`·`height`(레이아웃 흔들림 방지), WebP·AVIF
+
+### 29. 가게 정보 구조화 데이터
+
+- **Next.js · Vercel**: 페이지에 `<script type="application/ld+json">`(내용은 `content/`에서 만든다)
+- **Node (Express · NestJS)**: 템플릿 `<head>`에 JSON-LD
+- **Django**: 템플릿 블록에 JSON-LD
+- **Rails**: 레이아웃 `content_for :head`에 JSON-LD
+- **Spring Boot**: Thymeleaf `<head>`에 JSON-LD
+- **스택 무관 (CDN · DB · 인프라)**: schema.org `Restaurant`·`LocalBusiness`(`address`·`telephone`·`openingHoursSpecification`), 검색 엔진의 구조화 데이터 검사 도구로 확인
+
+### 30. 글꼴 불러오기와 라이선스
+
+- **Next.js · Vercel**: `next/font`(빌드 때 내려받아 자체 호스팅, 부분 집합 지정) — 라이선스 확인은 따로 한다
+- **Node (Express · NestJS)**: `@fontsource/*` 패키지(라이선스가 package.json에 적혀 있다) + `font-display: swap`
+- **Django**: 정적 파일로 woff2 + 라이선스 파일 함께
+- **Rails**: 자산 파이프라인으로 woff2 + 라이선스 파일 함께
+- **Spring Boot**: 정적 자원으로 woff2 + 라이선스 파일 함께
+- **스택 무관 (CDN · DB · 인프라)**: SIL OFL 1.1 글꼴은 파일을 배포할 때 라이선스 전문을 함께 둔다. 한글 글꼴은 부분 집합·동적 분할 파일로
+
+---
+
+## FastAPI 메모 (도면3D에서 쓴 것 — 표에 열로 올리기 전 단계)
+
+- 업로드 크기 제한: 요청 본문을 조각으로 읽으며 합계가 한도를 넘으면 413 (전부 메모리에 올리지 않기)
+- 형식 검사: 확장자 대신 파일 앞부분으로 판단, 이미지는 Pillow로 픽셀만 다시 저장(EXIF 제거) → 15장
+- CORS: `CORSMiddleware`의 `allow_origins`를 환경 변수 목록으로(와일드카드 금지)
+- 보안 헤더: 미들웨어 하나에서 `nosniff`·`Referrer-Policy`·API용 `CSP default-src 'none'`·`/api`에 `Cache-Control: private, no-store`
+- 입력 검증: pydantic 모델(정규식·범위)로 첫 단계에서 거절, 저장소 ID는 정해진 모양(예: 32자리 16진수)만 허용 → 경로 탈출 방지
+- 오래 걸리는 작업: RQ + Redis(`Queue.enqueue(..., job_timeout=)`), 개발 중엔 Redis 없이 스레드로 대신 → 6장
+- 속도 제한: 작은 서비스는 메모리 안의 IP별 카운터로 시작, 서버가 여러 대가 되면 Redis로

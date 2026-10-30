@@ -8,23 +8,26 @@ description: 사이트·페이지를 "이런 느낌으로 만들어줘"라고 �
 이 저장소의 `design/` 폴더가 디자인의 기준이다. 기억이나 일반적인 취향으로 디자인하지 않는다.
 
 ## 1. 읽기 (매번, 이 순서로)
-1. `design/DESIGN.md` 전체 — 특히 1장(원칙), 11장(하지 않을 것), 12장(저작권), 13장(점검표)
-2. `design/moods.md`
-3. `design/patterns.md` 중 이번에 만들 페이지의 패턴
-4. `design/components/` 각 파일의 머리말 주석
-5. Next.js 코드를 쓰기 전 `node_modules/next/dist/docs/`의 관련 문서 (AGENTS.md 지시)
+1. `design/DESIGN.md` 전체 — 특히 0.5장(바닥/취향), 1장(원칙), 11장(하지 않을 것), 12장(저작권), 13장(점검표)·13.1(품질 기준표)
+2. `design/moods.md` → 보여주는 사이트면 `design/directions.md`
+3. `design/typography.md`
+4. **고른 디렉션의 완성본 예시** `examples/<디렉션>-*/` — README, `Page.tsx`, `shots/` 캡처. 규칙보다 이 예시가 기준이다
+5. `design/patterns.md` 중 이번에 만들 페이지의 패턴
+6. `design/components/` 각 파일의 머리말 주석
+7. 프레임워크 코드를 쓰기 전 그 프로젝트에 설치된 버전의 공식 문서 (Next.js면 `node_modules/next/dist/docs/`) — AGENTS.md 1장
 
 ## 2. 요청 정리
-- 요청을 `design/brief.md`의 9칸으로 옮겨 적는다.
+- 저장소 루트에 `SITE_REQUEST.md`(사이트 요청서)가 채워져 있으면 그것을 쓴다. 없으면 요청을 `design/brief.md`의 12칸으로 옮겨 적는다 (10~12: 디렉션 · 시그니처 장면 · 소재 상태).
 - **★ 칸(1 목적, 2 사용자, 3 첫 행동, 5 단어 3개)이 비어 있으면** 그것만 한 번에 묻는다. 나머지는 기본값으로 채운다.
 - 사용자가 "알아서"라고 하면 묻지 않고 가장 그럴듯한 값을 고르고, 고른 값을 결과 맨 위에 적는다.
 
 ## 3. 결정 (결과 맨 위에 한 줄로 공개)
 ```
-preset=<calm|friendly> · mode=<light|dark> · accent=<색>(<한 가지 의미>) · 패턴: <페이지별 패턴>
-근거: 단어 <a·b·c> → <점수>, 사이트 종류 <보여준다/쓴다>
+preset=<calm|friendly> · direction=<house|editorial|object|없음> · mode=<light|dark>(+dark 섹션) · accent=<색>(<한 가지 의미>) · signature=<한 줄> · 패턴: <페이지별 패턴>
+근거: 단어 <a·b·c> → <점수>, 사이트 종류 <보여준다/쓴다>, 소재 <있음/촬영 예정/없음→렌더>
 ```
-- 강조색은 `app/site-theme.css`에 덮어쓰고 `node scripts/check-contrast.mjs design/tokens.css app/site-theme.css`를 통과시킨다.
+- 강조색은 사이트 쪽 CSS 파일 하나(예: `app/site-theme.css`, `src/site-theme.css`)에 덮어쓰고 `node scripts/check-contrast.mjs design/tokens.css <그 파일>`을 통과시킨다.
+- 결정 줄은 `SITE_REQUEST.md` 맨 아래 "결정" 칸에도 적는다.
 - `<html lang="ko" data-preset="…" data-mode="…">`
 
 ## 4. 만들기
@@ -33,17 +36,21 @@ preset=<calm|friendly> · mode=<light|dark> · accent=<색>(<한 가지 의미>)
   2) DESIGN.md 5장 표에 한 줄 추가,
   3) 사용자에게 "새 부품을 만들었다"고 알린다.
 - 페이지 코드에 날것의 색·임의 값(`[13px]`, `#333`)을 쓰지 않는다.
-- 문구는 이 사이트를 위해 새로 쓴다(해요체). 이미지는 `ImagePlaceholder` — 실제 이미지는 사용자가 소유/라이선스를 확인한 것만.
+- 문구는 이 사이트를 위해 새로 쓴다(해요체).
+- 이미지: 실제 이미지는 사용자가 소유/라이선스를 확인한 것만. 없으면 **시안 소재**(`scripts/render-stills/`로 렌더 → `grade.py` 보정)로 채우고 CREDITS에 "납품 전 교체". `ImagePlaceholder`는 렌더도 못 할 때만 (DESIGN.md 9장).
+- 디렉션 사이트: 완성본 예시의 섹션 순서·여백·크기 대비를 따라가되, 시그니처는 이 사이트만의 것으로 새로 정한다.
 - 모바일(375) → 데스크톱(1280) 순서로 확인하며 만든다.
+- **있는 화면을 다시 만들 때**: 손대기 전에 그 화면의 행동(버튼·링크·입력·단축키)과 상태(비었을 때·불러오는 중·처리 중·오류) 목록을 적고, 다 만든 뒤 하나씩 대조한다. 바뀌는 것은 모양이지 기능이 아니다. 왜: Auto-BIM 작업 화면을 다시 짜면서 "다른 도면" 버튼이 빠졌고, 캡처를 보기 전까지 몰랐다(2026-10-30).
 
 ## 5. 점검 (완성 전 필수)
-1. `design-review` 스킬의 절차를 그대로 실행한다 (C1~C20).
-2. 실패 항목을 고친다. 고칠 수 없는 항목은 이유와 함께 결과에 적는다.
-3. 가능하면 브라우저로 375px·1280px 화면을 캡처해 직접 본다.
+1. **캡처한다 (생략 불가)**: `node scripts/shoot.mjs <페이지> .tmp/shots` → 375·1440 첫 화면과 전체를 직접 본다.
+2. `design-review` 스킬의 절차를 그대로 실행한다 (C1~C24 + 품질 기준표 Q1~Q5).
+3. 실패 항목과 3점 미만 항목을 고친 뒤 **다시 캡처**한다. 최대 3번 반복. 고칠 수 없는 항목은 이유와 함께 결과에 적는다.
 
 ## 6. 결과 보고
 - 맨 위: 3장의 결정 한 줄 + 기본값으로 채운 칸.
-- 점검표 결과 (실패/예외만).
+- 점검표 결과 (실패/예외만) + 품질 기준표 점수표(근거 한 줄씩).
+- 캡처 이미지(375·1440 첫 화면)를 함께 보여준다.
 - 사용자가 나중에 고친 점은 `design/LOG.md`에 적는다. 같은 이유가 두 번이면 규칙으로 올리자고 제안한다.
 
 ## 절대 하지 않는 것

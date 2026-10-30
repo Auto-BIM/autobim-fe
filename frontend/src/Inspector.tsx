@@ -74,17 +74,22 @@ export function Inspector({ plan, preview, draft, setDraft, id, onSelect }: Prop
   };
 
   return (
-    <section aria-labelledby="insp-title" className="border border-line bg-surface">
-      <header className="flex items-start justify-between gap-3 border-b border-line px-4 py-3">
+    <section aria-labelledby="insp-title">
+      {/* v0.2.1: 상자 없이 — 패널 안은 선과 여백으로 나눈다 (patterns C형 도구형) */}
+      <header className="flex items-start justify-between gap-3">
         <div>
-          <h3 id="insp-title" className="text-title-sm font-semibold">{elementName(now)}</h3>
-          <p className="mt-0.5 text-label text-ink-3">인식 신뢰도 {pct(now.el.confidence)}</p>
+          {/* 종류는 제목 글꼴, ID는 본문 글꼴 숫자 — 제목 글꼴의 옛 숫자꼴에서 o3이 03처럼 읽혔다 */}
+          <h3 id="insp-title" className="flex items-baseline gap-2">
+            <span className="font-display text-title-lg tracking-title">{now.kind === "wall" ? KIND_LABEL[now.el.kind] : OPENING_LABEL[now.el.type]}</span>{" "}
+            <span className="text-title tabular-nums text-ink-2">{now.el.id}</span>
+          </h3>
+          <p className="mt-1 text-label tabular-nums text-ink-3">인식 신뢰도 {pct(now.el.confidence)}</p>
         </div>
         <Button variant="text" size="sm" onClick={() => onSelect(null)}>닫기</Button>
       </header>
 
       {reviews.length ? (
-        <ul className="space-y-1 border-b border-line px-4 py-3">
+        <ul className="mt-4 space-y-1 border-t border-line pt-3">
           {reviews.map((r, i) => (
             <li key={i} className="flex items-baseline gap-2 text-body-sm">
               <span aria-hidden className="size-2 shrink-0 rounded-full bg-(--color-review)" />
@@ -98,12 +103,12 @@ export function Inspector({ plan, preview, draft, setDraft, id, onSelect }: Prop
       ) : null}
 
       {removed ? (
-        <div className="space-y-3 px-4 py-4">
+        <div className="mt-4 space-y-3 border-t border-line pt-4">
           <p className="text-body-sm text-ink-2">지우기로 했어요. 적용하면 사라져요.</p>
           {draft.remove.includes(id) ? <Button variant="secondary" size="sm" onClick={() => setDraft(restoreElement(draft, id))}>되돌리기</Button> : null}
         </div>
       ) : (
-        <div className="space-y-4 px-4 py-4">
+        <div className="mt-4 space-y-4 border-t border-line pt-4">
           {now.kind === "wall" ? (
             <>
               <Select
