@@ -4,13 +4,14 @@
 //   샘플(#sample): 코드에 들어 있는 3층 샘플. 서버 없이 바로 시연.
 //   내 건물(#b=…): 층마다 올린 도면의 작업 ID + 층고·계단·용도. 주소에 다 들어 있어 새로 고쳐도 남는다.
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { Badge, Button, Checkbox, Dialog, PanelSection, Segmented, Select, SpecList, StageBar, TextField } from "@design";
+import { Button, Checkbox, Dialog, PanelSection, Segmented, Select, SpecList, StageBar, TextField, cx } from "@design";
 import { createJob, getJob, ApiError, errorText, ACCEPT, MAX_UPLOAD_MB, fileUrl, downloadName, type Job } from "./api";
 import {
   USE_LABEL, SLAB_MM, buildingHash, effectiveStairs, defaultFloorHeight, nextStairId, stairDims, stairRiseTread,
   type Building, type FloorModel, type FloorRef, type Stair, type UseKey,
 } from "./building";
 import { LEVEL_LABEL, STAIR_STD, review, type Finding } from "./rules";
+import { RISK_PIN, elementLabel, groupFindings, sortFindings } from "./riskPin";
 import { ALL_LAYERS, LAYER_LABEL, type Layer } from "./BuildingView";
 import { PlanView } from "./PlanView";
 
@@ -57,8 +58,15 @@ export function BuildingPage({ sample, building, onChange }: Props) {
   const shapeKey = JSON.stringify(floors.map((f) => [f.jobId, f.heightMm, f.stairs, f.plan.walls.length]));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const stableFloors = useMemo(() => floors, [shapeKey]);
-  const findings = useMemo(() => (ready ? review(stableFloors, use) : []), [stableFloors, use, ready]);
+  // 층 → 법규 먼저로 정렬해 요소별로 묶는다. 3D 번호(BuildingView)도 같은 순서로 붙어 목록 번호와 같다
+  const findings = useMemo(() => (ready ? sortFindings(review(stableFloors, use)) : []), [stableFloors, use, ready]);
+  const riskGroups = useMemo(() => groupFindings(findings), [findings]);
   const shownFindings = scanToken ? findings : [];
+  const riskList = useRef<HTMLOListElement>(null);
+  // 3D에서 번호·요소를 누르면 목록의 그 줄이 보이게
+  useEffect(() => {
+    if (selected) riskList.current?.querySelector<HTMLElement>('[aria-expanded="true"]')?.scrollIntoView({ block: "nearest" });
+  }, [selected]);
   const byKey = useMemo(() => new Map(findings.map((f) => [f.key, f])), [findings]);
 
   const sel = selected ? floors[Number(selected.split(":")[0])] : null;
@@ -130,12 +138,15 @@ export function BuildingPage({ sample, building, onChange }: Props) {
               </StageBar>
             ) : null}
           </div>
-          <p className="mt-3 text-label text-ink-3">층을 누르면 그 층으로 다가가요 · 벽·문·창·바닥·계단에 커서를 올리면 이름과 치수, 위험이면 이유가 나와요 · Esc로 전체</p>
+          <p className="mt-3 text-label text-ink-3">
+            {scanToken && riskGroups.length ? "빨간 번호를 누르면 그 층으로 다가가고, 위험 목록에 이유가 펼쳐져요 · " : ""}
+            층을 누르면 그 층으로 다가가요 · 벽·문·창·바닥·계단에 커서를 올리면 이름과 치수, 위험이면 이유가 나와요 · Esc로 전체
+          </p>
 
-          {/* 고른 요소 — 상자 대신 위 선 */}
-          {selected && sel ? (
+          {/* 고른 요소(위험이 없는 것) — 위험이 있는 요소는 오른쪽 목록 그 줄에 이유가 펼쳐진다 */}
+          {selected && sel && !selFindings.length ? (
             <PanelSection title={selected.split(":")[1] === "floor" ? `${sel.name} 바닥` : `${sel.name} · ${selected.split(":")[1]}`} className="mt-6">
-              {selFindings.length ? <div className="space-y-3">{selFindings.map((f, i) => <FindingText key={i} f={f} floors={floors} />)}</div> : <p className="text-body-sm text-ink-3">이 요소에는 걸린 위험이 없어요.</p>}
+              <p className="text-body-sm text-ink-3">이 요소에는 걸린 위험이 없어요.</p>
             </PanelSection>
           ) : null}
         </section>
@@ -144,22 +155,52 @@ export function BuildingPage({ sample, building, onChange }: Props) {
           <PanelSection n="01" title="위험 요소" meta={scanToken ? <><span className="tabular-nums">{findings.length}</span>건 · {USE_LABEL[use]} 기준</> : undefined}>
             {!scanToken ? (
               <p className="text-body-sm text-ink-3">건물 용도를 고르고 "위험 검토"를 누르면, 기준에 못 미치는 곳을 빨갛게 표시해요.</p>
-            ) : findings.length ? (
-              <ul className="border-t border-line">
-                {findings.map((f, i) => (
-                  <li key={i} className="border-b border-line">
-                    <button type="button" onClick={() => { setFocus(f.floor); setSelected(f.key); }} aria-pressed={selected === f.key}
-                      className="flex w-full items-baseline gap-3 py-2.5 text-left transition-colors duration-150 hover:bg-surface-2 aria-pressed:bg-surface-2">
-                      <span aria-hidden className="size-2 shrink-0 rounded-full bg-(--color-risk)" />
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-body-sm font-medium text-danger">{f.title}</span>
-                        <span className="block text-label text-ink-3">{floors[f.floor]?.name} · {f.measured} → {f.standard}</span>
-                      </span>
-                      <Badge tone={f.level === "law" ? "danger" : "neutral"}>{LEVEL_LABEL[f.level]}</Badge>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+            ) : riskGroups.length ? (
+              // 요소마다 한 줄: 번호(3D와 같음) · 층과 요소 → 걸린 기준들(측정값 → 기준). 누르면 그 층으로 다가가고 이유·근거가 펼쳐진다
+              <ol ref={riskList} className="divide-y divide-line" aria-label="위험 요소 목록">
+                {riskGroups.map((g, i) => {
+                  const f0 = g[0];
+                  const open = selected === f0.key;
+                  return (
+                    <li key={f0.key}>
+                      <button
+                        type="button"
+                        data-risk-row
+                        aria-expanded={open}
+                        onClick={() => { if (open) setSelected(null); else { setFocus(f0.floor); setSelected(f0.key); } }}
+                        className="flex w-full items-start gap-3 py-3.5 text-left transition-colors duration-150 hover:bg-surface-2 aria-expanded:bg-surface-2"
+                      >
+                        <span aria-hidden className={cx(RISK_PIN, "mt-px")}>{i + 1}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-baseline justify-between gap-2">
+                            <span className="text-body-sm font-semibold text-ink">{floors[f0.floor]?.name} · {elementLabel(f0)}</span>
+                            <span className="shrink-0 text-label tabular-nums text-ink-3">{g.length}건</span>
+                          </span>
+                          <span className="mt-2 block space-y-2">
+                            {g.map((f, k) => (
+                              <span key={k} className="block">
+                                <span className="flex items-baseline justify-between gap-2">
+                                  <span className="text-body-sm text-ink">{f.title}</span>
+                                  <span className={cx("shrink-0 text-label", f.level === "law" ? "font-medium text-danger" : "text-ink-3")}>{LEVEL_LABEL[f.level]}</span>
+                                </span>
+                                <span className="block text-label tabular-nums text-ink-2">
+                                  <span className="font-medium text-danger">{f.measured}</span> → 기준 {f.standard}
+                                </span>
+                                {open ? (
+                                  <>
+                                    <span className="mt-1 block text-label text-ink-2">{f.why}</span>
+                                    <span className="mt-0.5 block text-label text-ink-3">근거: {f.basis}</span>
+                                  </>
+                                ) : null}
+                              </span>
+                            ))}
+                          </span>
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ol>
             ) : (
               <p className="text-body-sm text-ink-3">기준에 못 미치는 곳을 찾지 못했어요.</p>
             )}
@@ -194,17 +235,6 @@ export function BuildingPage({ sample, building, onChange }: Props) {
         use={use}
         byKey={byKey}
       />
-    </div>
-  );
-}
-
-function FindingText({ f }: { f: Finding; floors: FloorModel[] }) {
-  return (
-    <div className="border-t border-line pt-3 first:border-t-0 first:pt-0">
-      <p className="text-body-sm font-semibold text-danger">{f.title} <span className="font-normal text-ink-3">· {LEVEL_LABEL[f.level]}</span></p>
-      <p className="text-body-sm">{f.measured} → 기준 {f.standard}</p>
-      <p className="mt-1 text-body-sm text-ink-2">{f.why}</p>
-      <p className="mt-1 text-label text-ink-3">근거: {f.basis}</p>
     </div>
   );
 }

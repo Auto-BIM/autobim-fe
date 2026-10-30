@@ -15,6 +15,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { Opening, Wall } from "./api";
 import { SLAB_MM, SPACE_LABEL, polygonArea, stairDims, type FloorModel } from "./building";
 import { LEVEL_LABEL, type Finding } from "./rules";
+import { RISK_PIN } from "./riskPin";
 import { KIND_LABEL, OPENING_LABEL, wallLength } from "./plan";
 
 export type Layer = "wall" | "door" | "window" | "floor" | "stair" | "space";
@@ -355,7 +356,8 @@ export function BuildingView({
     });
     const spaceEls = spaceTags.map((t) => mk(`pointer-events-none absolute top-0 left-0 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap px-1.5 text-label opacity-0 ${t.strong ? "bg-ink font-semibold text-bg" : "bg-bg/80 text-ink-2"}`, esc(t.text)));
     const tip = mk("pointer-events-none absolute top-0 left-0 z-10 max-w-72 border border-line bg-surface px-3 py-2 text-left opacity-0 shadow-raised");
-    const chip = mk("pointer-events-none absolute top-5 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-ink px-3.5 py-1.5 text-label whitespace-nowrap text-bg opacity-0 transition-opacity");
+    // 검토 상태는 오른쪽 위 가장자리 — 가운데 위는 모형 지붕과 겹쳤다
+    const chip = mk("pointer-events-none absolute top-3 right-3 flex items-center gap-2 rounded-full bg-ink px-3.5 py-1.5 text-label whitespace-nowrap text-bg opacity-0 transition-opacity");
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("class", "pointer-events-none absolute inset-0 size-full");
     el.appendChild(svg);
@@ -366,6 +368,7 @@ export function BuildingView({
     let layerOn: Record<Layer, boolean> = { wall: true, door: true, window: true, floor: true, stair: true, space: true, ...(init.current.layers ?? {}) };
     let found = new Map<string, Finding[]>();
     let scanT = -1; // 0..1 스캔 진행, -1 = 안 함
+    let scanDoneAt = -1; // 스캔이 끝난 시각 — 상태 표시는 잠깐 보여 주고 접는다(결과는 옆 목록에)
     let flagged = new Map<string, number>(); // key → 표시 시작 시각(clock)
     let focusIdx: number | null = init.current.focus ?? null;
     let selectedKey: string | null = init.current.selected ?? null;
@@ -504,22 +507,30 @@ export function BuildingView({
       return w;
     };
 
-    // 설명 상자(오른쪽) — 스캔으로 찾은 위험
-    let callouts: { f: Finding; box: HTMLDivElement; line: SVGPolylineElement; dot: SVGCircleElement; ring: SVGCircleElement }[] = [];
-    const buildCallouts = () => {
-      callouts.forEach((c) => { c.box.remove(); c.line.remove(); c.dot.remove(); c.ring.remove(); });
-      callouts = [];
-      const firstPerKey = [...found.values()].map((arr) => arr[0]).slice(0, 6); // 화면이 넘치지 않게 6개까지
-      firstPerKey.forEach((f) => {
-        const box = mk("pointer-events-none absolute top-0 left-0 hidden -translate-y-1/2 border border-(--color-risk)/30 border-l-4 border-l-(--color-risk) bg-surface px-2.5 py-1.5 whitespace-nowrap opacity-0 shadow-raised lg:block",
-          `<b class="block text-body-sm font-semibold text-danger">${esc(f.title)}</b><span class="block text-label text-ink-3">${esc(floors[f.floor].name)} · ${esc(f.measured)} · 기준 ${esc(f.standard)}</span>`);
+    // 위험 번호 — 스캔으로 찾은 요소마다 번호 하나(옆 위험 목록의 번호와 같다). 설명 글은 목록과 커서 설명에.
+    //   왜: 3D 위에 글 상자 여러 개를 띄우면 좁은 무대(12칸 중 8칸)에서 상자끼리·모형·층 이름표를 덮어 읽기 힘들었다(2026-10-30).
+    let pins: { key: string; floor: number; pin: HTMLButtonElement; line: SVGPolylineElement; dot: SVGCircleElement; ring: SVGCircleElement }[] = [];
+    const buildPins = () => {
+      pins.forEach((c) => { c.pin.remove(); c.line.remove(); c.dot.remove(); c.ring.remove(); });
+      pins = [];
+      [...found.entries()].forEach(([key, fs], i) => {
+        const pin = document.createElement("button");
+        pin.type = "button";
+        pin.className = `${RISK_PIN} pointer-events-auto absolute top-0 left-0 -translate-x-1/2 -translate-y-1/2 opacity-0 shadow-raised hover:ring-2 hover:ring-ink`;
+        pin.style.visibility = "hidden";
+        pin.textContent = String(i + 1);
+        const label = `위험 ${i + 1}: ${floors[fs[0].floor]?.name ?? ""} ${fs.map((f) => f.title).join(", ")}`;
+        pin.setAttribute("aria-label", label);
+        pin.title = label;
+        pin.addEventListener("click", () => { cb.current.onFocus?.(fs[0].floor); cb.current.onSelect?.(key); });
+        el.appendChild(pin);
         const NS = "http://www.w3.org/2000/svg";
         const line = document.createElementNS(NS, "polyline");
         line.setAttribute("fill", "none"); line.setAttribute("stroke", COL.red); line.setAttribute("stroke-width", "1");
-        const dot = document.createElementNS(NS, "circle"); dot.setAttribute("r", "4"); dot.setAttribute("fill", COL.red);
+        const dot = document.createElementNS(NS, "circle"); dot.setAttribute("r", "3"); dot.setAttribute("fill", COL.red);
         const ring = document.createElementNS(NS, "circle"); ring.setAttribute("fill", "none"); ring.setAttribute("stroke", COL.red);
         svg.append(line, ring, dot);
-        callouts.push({ f, box, line, dot, ring });
+        pins.push({ key, floor: fs[0].floor, pin, line, dot, ring });
       });
     };
 
@@ -532,12 +543,13 @@ export function BuildingView({
         found = new Map();
         f.forEach((x) => found.set(x.key, [...(found.get(x.key) ?? []), x]));
         flagged = new Map([...flagged].filter(([k]) => found.has(k)));
-        buildCallouts();
+        buildPins();
       },
       scan: () => {
         flagged = new Map();
-        if (reduce) { found.forEach((_, k) => flagged.set(k, clock - 1)); scanT = 1; return; }
+        if (reduce) { found.forEach((_, k) => flagged.set(k, clock - 1)); scanT = 1; scanDoneAt = clock; return; }
         scanT = 0;
+        scanDoneAt = -1;
         if (focusIdx !== null) cb.current.onFocus?.(null);
       },
       setFocus: (i) => {
@@ -615,6 +627,7 @@ export function BuildingView({
       // 스캔
       if (scanT >= 0 && scanT < 1) {
         scanT = Math.min(1, scanT + dt / 2.6);
+        if (scanT >= 1) scanDoneAt = clock;
         const y0 = -0.4, y1 = explodedY(floors.length - 1, 1) + FH[FH.length - 1] + 0.6;
         const y = lerp(y0, y1, io(scanT));
         scanG.position.y = y;
@@ -659,7 +672,7 @@ export function BuildingView({
         const bad = [...flagged.keys()].some((k) => groupsByKey.get(k)?.floor === i);
         const lb = floorLabels[i];
         lb.style.opacity = String(lo * (focusIdx === null || focusIdx === i ? 1 : 0.35) * (hoverFloor < 0 || hoverFloor === i || focusIdx !== null ? 1 : 0.45));
-        lb.style.left = `${Math.min(mx + 14, Wd - 120)}px`;
+        lb.style.left = `${Math.max(0, Math.min(mx + 14, Wd - lb.offsetWidth - 8))}px`; // 무대 오른쪽 끝에서 이름표가 잘리지 않게
         lb.style.top = `${sy}px`;
         const btn = lb.querySelector("button")!;
         btn.classList.toggle("border-(--color-risk)", bad);
@@ -667,32 +680,41 @@ export function BuildingView({
         btn.setAttribute("aria-pressed", String(focusIdx === i));
       });
 
-      // 설명 상자 + 지시선
-      const rightMax = Math.max(...floorLabels.map((l) => parseFloat(l.style.left) || 0));
-      const colX = Math.min(rightMax + 90, Wd - 270);
-      const items = callouts.map((c) => { const [ax, ay] = toScreen(worldAnchor(c.f.key)); return { c, ax, ay, y: ay }; }).sort((p, q) => p.ay - q.ay);
-      for (let i = 1; i < items.length; i++) if (items[i].y - items[i - 1].y < 54) items[i].y = items[i - 1].y + 54;
-      items.forEach(({ c, ax, ay, y }) => {
-        const k = flagged.has(c.f.key) ? clamp((clock - flagged.get(c.f.key)!) / 0.45) : 0;
-        const show = k * (focusIdx === null || focusIdx === c.f.floor ? 1 : 0);
-        const kl = seg(show, 0.3, 1);
-        c.box.style.opacity = String(kl);
-        c.box.style.left = `${colX + (1 - kl) * 10}px`;
-        c.box.style.top = `${y}px`;
-        c.line.setAttribute("points", `${ax},${ay} ${colX - 15},${y} ${colX - 1},${y}`);
-        c.line.style.opacity = String(kl * 0.8);
-        c.dot.setAttribute("cx", String(ax)); c.dot.setAttribute("cy", String(ay)); c.dot.style.opacity = String(show);
+      // 위험 번호 — 요소 자리에 놓고, 다른 번호와 겹치면 오른쪽 아래로 비켜 두고 가는 선으로 잇는다
+      const placed: [number, number][] = [];
+      pins.forEach((c) => {
+        const k = flagged.has(c.key) ? clamp((clock - flagged.get(c.key)!) / 0.45) : 0;
+        const show = k * (focusIdx === null || focusIdx === c.floor ? 1 : 0);
+        const [ax, ay] = toScreen(worldAnchor(c.key));
+        let px = ax, py = ay;
+        for (let n = 0; n < 6 && placed.some(([x, y]) => Math.hypot(x - px, y - py) < 28); n++) { px += 20; py += 20; }
+        const on = show > 0.02;
+        if (on) placed.push([px, py]);
+        const sel = selectedKey === c.key;
+        c.pin.style.visibility = on ? "visible" : "hidden"; // 안 보이는 번호는 누르거나 Tab으로 갈 수 없게
+        c.pin.style.opacity = String(seg(show, 0.2, 1));
+        c.pin.style.left = `${px}px`;
+        c.pin.style.top = `${py}px`;
+        c.pin.style.zIndex = sel ? "2" : "1";
+        c.pin.classList.toggle("ring-2", sel);
+        c.pin.classList.toggle("ring-ink", sel);
+        c.pin.setAttribute("aria-pressed", String(sel));
+        const moved = px !== ax || py !== ay;
+        c.line.setAttribute("points", `${ax},${ay} ${px},${py}`);
+        c.line.style.opacity = String(moved ? show * 0.8 : 0);
+        c.dot.setAttribute("cx", String(ax)); c.dot.setAttribute("cy", String(ay)); c.dot.style.opacity = String(moved ? show : 0);
         const rp = (clock * 1.2) % 1;
-        c.ring.setAttribute("cx", String(ax)); c.ring.setAttribute("cy", String(ay)); c.ring.setAttribute("r", String(4 + rp * 12));
-        c.ring.style.opacity = String(show * (1 - rp) * 0.8);
+        c.ring.setAttribute("cx", String(ax)); c.ring.setAttribute("cy", String(ay)); c.ring.setAttribute("r", String(10 + rp * 12));
+        c.ring.style.opacity = String(show * (1 - rp) * 0.6);
       });
 
       // 검토 상태
       const nFound = [...flagged.keys()].reduce((n, k) => n + (found.get(k)?.length ?? 0), 0);
       const nAll = [...found.values()].reduce((n, a) => n + a.length, 0);
       if (scanT >= 0) {
-        chip.style.opacity = "1";
         const done = scanT >= 1;
+        // 끝나고 2.5초 뒤 접는다 — 계속 떠 있으면 층을 고를 때 위층 이름표와 겹쳤다. 결과 수는 옆 목록 머리에 남는다
+        chip.style.opacity = String(done && scanDoneAt >= 0 ? clamp(1 - (clock - scanDoneAt - 2.5) / 0.5) : 1);
         chip.innerHTML = `<i class="block size-2 rounded-full ${nFound ? "bg-(--color-risk)" : "bg-ink-3"}"></i><span>${done ? `검토 완료 · 위험 ${nAll}건` : nFound ? `검토 중… 위험 ${nFound}건` : "검토 중…"}</span>`;
       } else chip.style.opacity = "0";
 
