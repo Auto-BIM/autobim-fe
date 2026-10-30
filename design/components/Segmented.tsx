@@ -49,6 +49,7 @@ export function Segmented<T extends string>({
     <div
       role="radiogroup"
       aria-label={label}
+      data-floating={floating ? "" : undefined} /* 사이트 테마가 무대 위 도구 모양(예: 유리판)을 덮어쓸 수 있는 자리 */
       className={cx(
         "inline-flex shrink-0 overflow-hidden rounded-control border",
         floating ? "border-line bg-bg/90 backdrop-blur-md" : "border-line bg-surface",

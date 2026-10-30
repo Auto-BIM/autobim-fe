@@ -36,6 +36,7 @@ export function StageBar({
     <div
       role="group"
       aria-label={label}
+      data-floating="" /* 사이트 테마가 무대 위 도구 모양(예: 유리판)을 덮어쓸 수 있는 자리 */
       className={cx(
         "flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-line bg-bg px-3 py-2.5",
         "md:absolute md:inset-x-3 md:bottom-3 md:z-10 md:rounded-control md:border md:bg-bg/90 md:py-2 md:backdrop-blur-md",
