@@ -5,17 +5,22 @@
 // 문·창은 glb 안에서 벽에 뚫린 구멍일 뿐이라, Plan 값으로 얇은 상자 테두리를 그려 보여주고 누를 수 있게 한다.
 //   Plan (x, y) mm → 3D (x/1000, 높이, −y/1000)
 // 색은 디자인 값(CSS 변수)에서 읽는다 — 2D 평면과 같은 색 약속.
+//
+// 처음 보일 때 "도면이 건물로 올라가는" 시연을 한 번 한다(작업마다 1회, 약 3초):
+//   위에서 본 평면(벽이 납작한 선) → 카메라가 비스듬히 기울고 → 외벽부터 벽이 솟고 → 문·창이 나타난다.
+//   누르면 바로 끝, 움직임 줄이기면 생략, "세우기 다시 보기"로 다시. (사용자 요청 2026-10-30, DESIGN 8장)
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { Segmented, StageBar } from "@design";
+import { Button, Segmented, StageBar } from "@design";
 import type { Plan } from "./api";
 import { openingCenter, wallDir } from "./plan";
 
 type View = "iso" | "top" | "front";
 type Props = {
   url: string;
+  modelKey: string; // 작업 ID — 시점 기억·세우기 시연을 작업마다 따로 한다
   plan: Plan; // glb와 같은 리비전의 Plan (문·창 위치에 씀)
   selected: string | null;
   review: Set<string>;
@@ -26,18 +31,28 @@ type Props = {
 
 const css = (name: string) => new THREE.Color(getComputedStyle(document.documentElement).getPropertyValue(name).trim() || "gray");
 
-type Api = { setView: (v: View) => void; setCut: (h: number) => void; paint: (sel: string | null, review: Set<string>) => void };
+type Api = { setView: (v: View) => void; setCut: (h: number) => void; paint: (sel: string | null, review: Set<string>) => void; replay: () => void };
 
-// 리비전이 바뀌어 모델을 다시 불러와도 보던 시점을 유지한다
-let lastCamera: { pos: THREE.Vector3; target: THREE.Vector3 } | null = null;
+// 리비전이 바뀌어 모델을 다시 불러와도 보던 시점을 유지한다 — 같은 작업일 때만.
+//   왜: 모든 작업이 시점 하나를 같이 써서, 새 도면을 올리면 앞 작업에서 가까이 본 시점이 그대로 와 벽 한 조각만 보였다(2026-10-30).
+let lastCamera: { key: string; pos: THREE.Vector3; target: THREE.Vector3 } | null = null;
+// 세우기 시연을 이미 보여 준 작업 (탭을 바꿔 다시 그려도 반복하지 않는다)
+const played = new Set<string>();
 
-export function Viewer3D({ url, plan, selected, review, onSelect, onError, overlay }: Props) {
+const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+const easeInOut = (v: number) => (v < 0.5 ? 4 * v * v * v : 1 - Math.pow(-2 * v + 2, 3) / 2);
+const easeOut = (v: number) => 1 - Math.pow(1 - v, 3);
+// 시연 시간표(초)
+const RISE = { camA: 0.5, camB: 1.9, wallA: 0.8, wallDur: 0.9, wallSpan: 1.0, openA: 2.4, openDur: 0.5, end: 3.0 };
+
+export function Viewer3D({ url, modelKey, plan, selected, review, onSelect, onError, overlay }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const api = useRef<Api | null>(null);
   const [view, setView] = useState<View>("iso");
   const maxH = Math.max(...plan.walls.map((w) => w.height), 2400) / 1000;
   const [cut, setCut] = useState(maxH);
   const [ready, setReady] = useState(false);
+  const reduce = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   // 3D 안의 이벤트는 한 번만 연결하므로, 늘 최신 값을 보도록 ref에 담는다
   const selectRef = useRef(onSelect);
   const selectedRef = useRef(selected);
@@ -87,6 +102,8 @@ export function Viewer3D({ url, plan, selected, review, onSelect, onError, overl
     const wallMats = new Map<string, THREE.MeshStandardMaterial>();
     const openingMats = new Map<string, { line: THREE.LineBasicMaterial; fill: THREE.MeshBasicMaterial; base: THREE.Color }>();
     const pickables: THREE.Object3D[] = [];
+    const wallMeshes: THREE.Mesh[] = [];
+    let openK = 1; // 문·창 보이기 정도(세우기 시연 중 0→1)
     let size = new THREE.Vector3(10, 3, 10);
     let center = new THREE.Vector3();
 
@@ -103,7 +120,11 @@ export function Viewer3D({ url, plan, selected, review, onSelect, onError, overl
       controls.update();
     };
 
-    // 문·창: Plan 값으로 상자를 만들어 벽 구멍 자리에 놓는다
+    // 문·창: Plan 값으로 상자를 만들어 벽 구멍 자리에 놓는다.
+    //   glb가 다 오기 전에는 숨긴다 — 카메라를 맞추기 전이라 문 상자 하나가 화면 가득 크게 보였다(2026-10-30 사용자 화면)
+    const openingsG = new THREE.Group();
+    openingsG.visible = false;
+    scene.add(openingsG);
     const walls = new Map(plan.walls.map((w) => [w.id, w]));
     for (const o of plan.openings) {
       const w = walls.get(o.wall_id);
@@ -112,14 +133,14 @@ export function Viewer3D({ url, plan, selected, review, onSelect, onError, overl
       const d = wallDir(w);
       const geo = new THREE.BoxGeometry(o.width / 1000, o.height / 1000, (w.thickness * 1.15) / 1000);
       const base = o.type === "door" ? colors.door : colors.window;
-      const line = new THREE.LineBasicMaterial({ color: base, clippingPlanes: [clip] });
+      const line = new THREE.LineBasicMaterial({ color: base, transparent: true, clippingPlanes: [clip] });
       const fill = new THREE.MeshBasicMaterial({ color: base, transparent: true, opacity: 0.18, clippingPlanes: [clip], depthWrite: false });
       const box = new THREE.Mesh(geo, fill);
       box.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), line));
       box.position.set(c.x / 1000, (o.sill_height + o.height / 2) / 1000, -c.y / 1000);
       box.rotation.y = Math.atan2(d.y, d.x);
       box.name = o.id;
-      scene.add(box);
+      openingsG.add(box);
       pickables.push(box);
       openingMats.set(o.id, { line, fill, base });
     }
@@ -140,8 +161,10 @@ export function Viewer3D({ url, plan, selected, review, onSelect, onError, overl
           m.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry, 30), new THREE.LineBasicMaterial({ color: colors.edge, transparent: true, opacity: 0.5, clippingPlanes: [clip] })));
           wallMats.set(id, mat);
           pickables.push(m);
+          wallMeshes.push(m);
         });
         scene.add(gltf.scene);
+        openingsG.visible = true;
         const box = new THREE.Box3().setFromObject(gltf.scene);
         size = box.getSize(new THREE.Vector3());
         center = box.getCenter(new THREE.Vector3());
@@ -149,19 +172,58 @@ export function Viewer3D({ url, plan, selected, review, onSelect, onError, overl
         const grid = new THREE.GridHelper(n, n, css("--color-line-strong"), css("--color-line"));
         grid.position.set(center.x, box.min.y - 0.001, center.z);
         scene.add(grid);
-        if (lastCamera) {
+        if (lastCamera && lastCamera.key === modelKey) {
           camera.position.copy(lastCamera.pos);
           controls.target.copy(lastCamera.target);
           camera.near = 0.05;
           camera.far = 500;
           camera.updateProjectionMatrix();
         } else fit("iso");
+        // 외벽부터, 그다음 내벽 — Plan 순서대로
+        const order = new Map(plan.walls.map((w, i) => [w.id, (w.kind === "exterior" ? 0 : 1000) + i]));
+        wallMeshes.sort((a, b) => (order.get(a.name) ?? 1e6) - (order.get(b.name) ?? 1e6));
         api.current?.paint(selectedRef.current, reviewRef.current);
         setReady(true);
+        if (!played.has(modelKey) && !reduce) {
+          played.add(modelKey);
+          startRise();
+        }
       },
       undefined,
       () => onError?.("3D 모델을 불러오지 못했어요. 새로 고치거나 잠시 뒤 다시 열어 주세요."),
     );
+
+    // ── 세우기 시연 ──
+    let rise: { t0: number; fromPos: THREE.Vector3; toPos: THREE.Vector3; target: THREE.Vector3 } | null = null;
+    const applyRise = (t: number) => {
+      if (!rise) return;
+      const k = easeInOut(clamp01((t - RISE.camA) / (RISE.camB - RISE.camA)));
+      camera.position.lerpVectors(rise.fromPos, rise.toPos, k);
+      controls.target.copy(rise.target);
+      camera.lookAt(rise.target);
+      const step = wallMeshes.length > 1 ? RISE.wallSpan / (wallMeshes.length - 1) : 0;
+      wallMeshes.forEach((m, i) => {
+        m.scale.y = 0.02 + 0.98 * easeOut(clamp01((t - RISE.wallA - i * step) / RISE.wallDur));
+      });
+      openK = clamp01((t - RISE.openA) / RISE.openDur);
+      api.current?.paint(selectedRef.current, reviewRef.current);
+    };
+    const endRise = () => {
+      if (!rise) return;
+      applyRise(RISE.end);
+      rise = null;
+      controls.enabled = true;
+      controls.update();
+    };
+    const startRise = () => {
+      fit("iso");
+      const toPos = camera.position.clone();
+      const target = controls.target.clone();
+      fit("top"); // 처음은 위에서 본 평면 — 벽이 납작한 선으로 보인다
+      rise = { t0: performance.now(), fromPos: camera.position.clone(), toPos, target };
+      controls.enabled = false;
+      applyRise(0);
+    };
 
     const resize = () => {
       const { clientWidth: w, clientHeight: h } = el;
@@ -187,7 +249,10 @@ export function Viewer3D({ url, plan, selected, review, onSelect, onError, overl
       const opening = hits.find((h) => openingMats.has(h.object.name));
       return (opening ?? hits[0])?.object.name ?? null;
     };
-    const onDown = (e: PointerEvent) => (down = { x: e.clientX, y: e.clientY });
+    const onDown = (e: PointerEvent) => {
+      if (rise) return endRise(); // 시연 중에 누르면 바로 끝
+      down = { x: e.clientX, y: e.clientY };
+    };
     const onUp = (e: PointerEvent) => {
       if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 5) selectRef.current(pick(e));
       down = null;
@@ -201,14 +266,22 @@ export function Viewer3D({ url, plan, selected, review, onSelect, onError, overl
 
     let raf = 0;
     const tick = () => {
-      controls.update();
+      if (rise) {
+        const t = (performance.now() - rise.t0) / 1000;
+        if (t >= RISE.end) endRise();
+        else applyRise(t);
+      }
+      if (!rise) controls.update();
       renderer.render(scene, camera);
       raf = requestAnimationFrame(tick);
     };
     tick();
 
     api.current = {
-      setView: fit,
+      setView: (v) => {
+        endRise();
+        fit(v);
+      },
       setCut: (h) => {
         clip.constant = h;
       },
@@ -221,13 +294,18 @@ export function Viewer3D({ url, plan, selected, review, onSelect, onError, overl
           const c = id === sel ? colors.sel : rev.has(id) ? colors.review : m.base;
           m.line.color.copy(c);
           m.fill.color.copy(c);
-          m.fill.opacity = id === sel ? 0.45 : 0.18;
+          m.fill.opacity = (id === sel ? 0.45 : 0.18) * openK;
+          m.line.opacity = openK;
         }
+      },
+      replay: () => {
+        if (wallMeshes.length) startRise();
       },
     };
 
     return () => {
-      lastCamera = { pos: camera.position.clone(), target: controls.target.clone() };
+      endRise(); // 시연 중에 닫히면 끝난 모습의 시점을 기억한다
+      lastCamera = { key: modelKey, pos: camera.position.clone(), target: controls.target.clone() };
       cancelAnimationFrame(raf);
       ro.disconnect();
       cv.removeEventListener("pointerdown", onDown);
@@ -295,6 +373,11 @@ export function Viewer3D({ url, plan, selected, review, onSelect, onError, overl
           />
           <span className="w-14 shrink-0 text-right tabular-nums text-ink">{cut.toFixed(2)} m</span>
         </label>
+        {ready && !reduce ? (
+          <Button variant="text" size="sm" onClick={() => api.current?.replay()}>
+            세우기 다시 보기
+          </Button>
+        ) : null}
       </StageBar>
     </div>
   );

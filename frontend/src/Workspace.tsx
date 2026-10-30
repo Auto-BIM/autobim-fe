@@ -127,6 +127,7 @@ export function Workspace({ job, busy, track, onRestart, onBuilding }: Props) {
                 <Suspense fallback={<div className="aspect-4/3" />}>
                   <Viewer3D
                     url={glb}
+                    modelKey={job.id}
                     plan={plan}
                     selected={selected}
                     review={reviewIds}
