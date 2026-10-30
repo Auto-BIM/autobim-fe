@@ -19,7 +19,7 @@
 
 - [ ] 사이트 요청서(`SITE_REQUEST.md`)를 채운다. 풀스택 칸은 `AGENTS.md` 0장으로, 디자인 칸은 `design/`에서 쓴다.
 - [ ] 규칙집(`AGENTS.md`)을 저장소 루트에 넣고 0장(서비스·스택·요금제 한도·외부 API 한도·결제·개인정보·지역·백업·시간대)을 채운다.
-- [ ] 디자인 플레이북을 쓰면: `design/`·`examples/` 폴더, `design-site`·`design-review` 스킬, `scripts/`(check-contrast·design-lint·shoot), 디자인 값 불러오기, 글꼴(라이선스 확인), `<html data-preset data-mode>`(+ 보여주는 사이트면 `data-direction`).
+- [ ] 디자인 플레이북을 쓰면: `design/`·`examples/` 폴더, `design-site`·`design-review` 스킬, `scripts/`(check-contrast·design-lint·shoot·licenses), 디자인 값 불러오기, 글꼴(라이선스 확인), `<html data-preset data-mode>`(+ 보여주는 사이트면 `data-direction`).
 - [ ] 로그인·DB가 없는 작은 사이트면 이 장에서 DB·로그인 줄을 지우고 **L장**을 함께 한다. 외주면 **M장**의 첫 세 줄을 첫날 한다.
 - [ ] `.env.example`을 만든다. 실제 값은 저장소에 올리지 않는 파일·비밀 저장소에만 둔다.
 - [ ] 로컬 DB를 컨테이너로 띄운다(`docker compose up -d`). 개발 서버가 원격(운영) DB 주소로는 시작하지 않게 막는 검사를 넣는다.
@@ -86,6 +86,7 @@
 - [ ] 비밀 값·`.env`가 diff에 없다. 여러 수정을 묶어 한 번에 배포한다.
 - [ ] (디자인 플레이북을 쓰면) `node scripts/design-lint.mjs` 통과, 바뀐 화면의 375·1440 캡처와 접근성 검사(`shoot.mjs`) 확인. 출시·납품이면 `--release`로 시안 소재·자리 표시가 남지 않았는지.
 - [ ] 글꼴·사진·음원 등 새로 넣은 소재의 출처·라이선스가 CREDITS에 있다.
+- [ ] 함께 나가는 글꼴·라이브러리의 라이선스 전문이 빌드 결과에 있다 — `node scripts/licenses.mjs`(빌드 명령 앞에) → `public/licenses/`, `node scripts/design-lint.mjs --dist <빌드 폴더>` 통과.
 
 ## G. 배포 후
 

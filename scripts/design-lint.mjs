@@ -95,13 +95,26 @@ if (!credits.length && files.some((f) => /\.(png|jpe?g|webp|avif|svg|mp4|mp3|wav
   add("C20", "fail", roots.join(" "), "이미지·소리 파일이 있는데 CREDITS.md가 없음", "파일마다 출처·라이선스를 CREDITS.md에 적는다");
 }
 
-// 글꼴 라이선스 동봉
+// 글꼴 라이선스 동봉 — 글꼴 파일 옆의 LICENSE·OFL 파일, 또는 빌드 결과 맨 위의 라이선스 모음
+//   (licenses/ 폴더나 *LICENSES* 파일 — scripts/licenses.mjs가 만드는 것)에 그 글꼴 이름과 OFL 전문이 있으면 통과.
+//   번들러는 글꼴을 assets/에 해시 이름으로 섞어 두므로 "옆에" 두기 어렵다 → 모음 파일도 인정한다.
 if (dist) {
-  for (const f of walk(resolve(dist))) {
+  const top = resolve(dist);
+  const collected = [
+    ...readdirSync(top).filter((n) => /^(LICENSE|OFL)|LICENSES/i.test(n)).map((n) => join(top, n)),
+    ...(existsSync(join(top, "licenses")) ? walk(join(top, "licenses")) : []),
+  ].filter((f) => statSync(f).isFile()).map((f) => readFileSync(f, "utf8").toLowerCase()).join("\n");
+  const hasOfl = collected.includes("open font license");
+  for (const f of walk(top)) {
     if (!/\.(woff2?|ttf|otf)$/i.test(f)) continue;
     const dir = f.slice(0, f.lastIndexOf("/"));
-    const hasLicense = readdirSync(dir).some((n) => /^(LICENSE|OFL)/i.test(n));
-    if (!hasLicense) add("LIC", "fail", relative(process.cwd(), f), "글꼴 파일 옆에 라이선스 파일이 없음", "OFL 등 라이선스 전문을 같은 폴더에 둔다");
+    if (readdirSync(dir).some((n) => /^(LICENSE|OFL)/i.test(n))) continue;
+    // 파일 이름에서 글꼴 이름 후보: noto-serif-kr-latin-400-normal-AbC.woff2 → noto-serif-kr · PretendardVariable.subset.0 → pretendard
+    const base = f.slice(f.lastIndexOf("/") + 1).replace(/\.(woff2?|ttf|otf)$/i, "");
+    const words = base.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+    const keys = [words.slice(0, 3).join("-"), words.slice(0, 2).join("-"), words[0]].filter((k) => k && k.length >= 4);
+    const named = keys.some((k) => collected.includes(k) || collected.includes(k.replace(/-/g, " ")));
+    if (!(hasOfl && named)) add("LIC", "fail", relative(process.cwd(), f), "글꼴 파일의 라이선스 전문을 찾지 못함", "글꼴 옆에 OFL 등 라이선스 파일을 두거나, scripts/licenses.mjs로 빌드 결과 licenses/에 모은다");
   }
 }
 
